@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from lotto_model.contracts import DrawInput
 from lotto_model.ingestion.contracts import Observation
+from lotto_model.locks import lock_draw
 
 
 class Repository:
@@ -145,6 +146,8 @@ class Repository:
             != "valid"
         ):
             raise ValueError("Draw ingestion requires valid evidence")
+        # Serialize with prospective issuance so a result and an issue cannot race.
+        lock_draw(self.connection, observation.game, observation.draw_date)
         payload = observation.model_dump(mode="json")
         # A refreshed source body creates new evidence; repeated parsing is idempotent.
         key = f"{observation.game}:{observation.draw_date}:{observation.source_url}"
