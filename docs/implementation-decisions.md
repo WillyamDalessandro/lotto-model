@@ -110,3 +110,59 @@ all remain blocked on permitted inputs.
   then run batch, audit, snapshot and protocol in that order.
 - For Phase 6: a reviewed issue-deadline source and current 6/45 rule evidence.
   For optional play: spending limits and price evidence.
+
+## Phase 7 rulings (10 October 2026)
+
+Branch: `codex/phase7-study`. The user directed that the Phase 2 ingestion must
+fill the full dataset itself ("use python or web scrap"), that the best result
+is the one that matches the most winning numbers, and that all available data
+be used instead of the 282-draw minimum.
+
+23. **Draw source: lotto.net yearly archives.** Its disclaimer allows personal
+    use and has no harvesting or extraction prohibition. robots.txt allows the
+    paths. The terms of irish.national-lottery.com, irishlottery.com and
+    lottery.co.uk prohibit data harvesting (lottery.co.uk is now on the
+    restricted list), and lottery.ie requires permission. Collection is 41
+    requests at a 5-second crawl delay. Past years are cached and never
+    refetched; only the current year is refreshed. Data stays local and is
+    never pushed. Cost if wrong: the evidence store would need replacing with
+    an operator-licensed export, with no schema change.
+24. **Rule evidence: the Wikipedia article (CC BY-SA), checked phrase by
+    phrase**, plus the August 2015 trade announcement for the 6/47 start
+    (3 September 2015). Every phrase listed in `ingestion/backfill.py` must
+    appear verbatim in the saved body, so a rewritten article stops the
+    backfill.
+25. **The 2006 boundary is not guessed.** Wikipedia says only "November 2006".
+    6/42 ends on 31 October and 6/45 starts on the first Saturday, 4 November.
+    The Wednesday 1 November 2006 draw stays staged as `unverified_rule`.
+26. **Fixed €500,000 second draws (1994–1998) are skipped.** Some archive
+    pages list a second fixed-jackpot draw after the main Lotto draw on the
+    same date. The parser keeps the first (main) entry and rejects any other
+    duplicate pattern.
+27. **Pre-euro jackpots are not imported.** The archive shows pre-2002
+    jackpots already converted to euro, and the conversion basis is unknown.
+    Numbers and outcomes are kept.
+28. **Schedule exceptions are reviewed calendar events.** There are 23 dated
+    exceptions (Christmas Day moves and five other moved draws). Each is bound
+    to its yearly archive page in `data/reviews/rule-bindings.json`.
+29. **Studies run per rule regime, using all of each regime's draws.** Numbers
+    and pool sizes differ between regimes, so pooling them would mix
+    different games. The 6/47 study is primary. The 6/45 (2006–2015) and 6/42
+    (1994–2006) studies are independent replications on their own last five
+    years. The 282-draw minimum is a protocol gate only; the study uses every
+    eligible draw.
+30. **Tuning is leakage-safe.** It uses a predeclared grid (18 settings across
+    logistic, gradient boosting, random forest and MLP), scored walk-forward on
+    the 100 draws before the evaluation window. Selection is by lowest log
+    loss, then the 3-plus rate. The 3-plus rate alone, over 100 draws, has
+    about two expected hits and would select noise. The evaluation window
+    (the last 1,826 days) never informs any choice.
+31. **"Best" means most winning numbers matched.** Each source and method is
+    ranked by mean main numbers matched on its best line per draw, relative to
+    the chance mean for the same line count, with the 3-plus rate as the
+    tiebreak. Both metrics are tested against chance. One Holm family covers
+    both metrics for every source and method.
+32. **The 40% target is reported as infeasible by prediction.** One random
+    line hits 3+ with probability 2.1%. Ten coverage lines reach only about
+    19%. Reaching 40% needs about 25 or more lines per draw, which is spending,
+    not prediction. The study reports what each method actually achieves.

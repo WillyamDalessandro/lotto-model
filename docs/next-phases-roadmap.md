@@ -174,3 +174,5 @@ Requested 9 October 2026, to start after Phases 2–6 software is complete (see 
 **Gate:** every result traces to a verified snapshot and frozen configuration. Tuning never touches the evaluation draws. Comparisons use identical draws and line budgets. Multiple-comparison correction covers every model and method tested.
 
 **Dependency:** permitted full-history data (7.1). Without it, 7.2–7.5 can only run on synthetic data to verify the software.
+
+**Status (10 October 2026):** 7.1 is done for draws. `lotto data collect` backfilled 3,909 draws (1988–2026) with seven evidence-backed rule intervals, and an audited snapshot was frozen. Prize breakdowns are still outstanding. 7.2–7.5 are implemented as `lotto research study` and run on the real snapshot for the 6/47, 6/45 and 6/42 regimes. Results and interpretation are in `docs/phase7-study.md`; decisions are rulings 23–32 in `docs/implementation-decisions.md`.

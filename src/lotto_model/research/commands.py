@@ -236,3 +236,41 @@ def predict_command(
         root_seed=protocol.root_seed,
     )
     typer.echo(json.dumps(value))
+
+
+@app.command("study")
+@safe_command
+def study_command(
+    snapshot: Path,
+    rule_code: str = typer.Option(...),
+    output_root: Path = Path("data/studies"),
+    evaluation_days: int = typer.Option(1826, help="Evaluation window length."),
+):
+    """Phase 7: tune on earlier draws, evaluate the last five years, compare."""
+    from lotto_model.research.protocol import load_population, snapshot_digest
+    from lotto_model.research.study import StudyConfig, best, run_study
+
+    draws = load_population(snapshot, rule_code)
+    if not draws:
+        raise ValueError("insufficient_data: no draws for this rule code")
+    config = StudyConfig(
+        snapshot_digest=snapshot_digest(snapshot),
+        rule_code=rule_code,
+        pool=draws[0].pool,
+        evaluation_days=evaluation_days,
+    )
+    output, reported = run_study(config, draws, output_root)
+    top = best(reported["summary"])
+    typer.echo(
+        json.dumps(
+            dict(
+                path=str(output),
+                significant=[
+                    f"{r['source']}:{r['method']}"
+                    for r in reported["summary"]
+                    if r["significant"]
+                ],
+                best_observed=f"{top['source']}:{top['method']}",
+            )
+        )
+    )
