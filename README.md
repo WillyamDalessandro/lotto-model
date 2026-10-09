@@ -19,7 +19,7 @@ Read [the implementation plan](docs/implementation-plan.md) for data contracts, 
 
 ## Status
 
-Foundation design proposed for review. This repository currently contains documentation only; the previously described data exports and collection scripts are not committed here. No database, ingestion pipeline or model has been implemented or validated.
+Phase 1 implements the local Python/PostgreSQL stack, schema migrations, draw contracts, CLI checks and CI. See [local development](docs/local-development.md) for setup, tests and backups. The previously described external data exports are not committed here. Historical ingestion and model training remain later phases.
 
 The initial historical experiment uses the 6/47 regime. The small 6/45 sample is not sufficient for reliable evaluation. Historical prize-sharing correlations are not evidence that winning numbers can be predicted. A result showing no advantage over random selection is a valid outcome.
 

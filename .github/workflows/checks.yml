@@ -1,0 +1,28 @@
+name: checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        env:
+          POSTGRES_USER: lotto_test
+          POSTGRES_PASSWORD: isolated_ci_password
+          POSTGRES_DB: lotto_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lotto_test -d lotto_test"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      LOTTO_TEST_DATABASE_URL: postgresql+psycopg://lotto_test:isolated_ci_password@127.0.0.1:5432/lotto_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.0"
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest -q
