@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 
+from lotto_model.audit.contracts import AuditInputs, observation_key, sha256
 from lotto_model.ingestion.evidence import EvidenceStore
 
 
@@ -153,3 +155,89 @@ def _write_batch(root, *, draws=DRAWS, rules=True, enrichment=False, **changes):
 @pytest.fixture
 def write_batch():
     return _write_batch
+
+
+# Synthetic audit inputs shared by audit unit tests.
+RULE_BODY = b"reviewed rule evidence"
+OBS_BODY = b"observation evidence"
+RULE_SHA = sha256(RULE_BODY)
+OBS_SHA = sha256(OBS_BODY)
+RULE_URL = "https://example.test/rules"
+
+
+def make_rule(**changes):
+    return (
+        dict(
+            code="6/47",
+            starts_on=date(2026, 1, 1),
+            ends_on=None,
+            pool=47,
+            schedule=[0, 2],
+            evidence_url=RULE_URL,
+            binding=dict(
+                rule_code="6/47", artifact_sha256=RULE_SHA, source_url=RULE_URL
+            ),
+            verified=True,
+            binding_matches=True,
+        )
+        | changes
+    )
+
+
+def make_draw(day, mains=(1, 2, 3, 4, 5, 6), bonus=7, **changes):
+    key = observation_key("test", "https://example.test/r", OBS_SHA, "1", str(day))
+    payload = dict(
+        game="lotto", draw_date=day.isoformat(), mains=list(mains), bonus=bonus
+    )
+    return (
+        dict(
+            game="lotto",
+            draw_date=day,
+            status="accepted",
+            rule_code="6/47",
+            mains=sorted(mains),
+            bonus=bonus,
+            observation_key=key,
+            observation=payload,
+            evidence_ok=True,
+            number_conflict=False,
+        )
+        | changes
+    )
+
+
+def lineage_for(draw):
+    return dict(
+        observation_key=draw["observation_key"],
+        source="test",
+        url="https://example.test/r",
+        artifact_sha256=OBS_SHA,
+        retrieved_at=datetime(2026, 10, 9, 12, tzinfo=timezone.utc),
+        parser_version="1",
+        record_key=draw["draw_date"].isoformat(),
+        payload=draw["observation"],
+        status="accepted",
+    )
+
+
+def build_inputs(draws, rules=None, events=(), enrichment=()):
+    return AuditInputs(
+        draws=list(draws),
+        rules=list(rules or [make_rule()]),
+        observations=[lineage_for(d) for d in draws if d["observation"]],
+        issues=[],
+        enrichment=list(enrichment),
+        events=list(events),
+        evidence={RULE_SHA: RULE_BODY, OBS_SHA: OBS_BODY},
+        staged=dict(undated=0, malformed_date=0, staged_in_range=0),
+    )
+
+
+@pytest.fixture
+def audit_factory():
+    class Factory:
+        rule = staticmethod(make_rule)
+        draw = staticmethod(make_draw)
+        inputs = staticmethod(build_inputs)
+
+    return Factory
