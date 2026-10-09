@@ -22,6 +22,41 @@ def validate_source_url(value):
     raise ValueError("Evidence requires an HTTP(S) URL or absolute local file URI")
 
 
+class UndatedObservation(BaseModel):
+    """Real winning numbers with period evidence but no individual draw date."""
+
+    observation_kind: Literal["undated"] = "undated"
+    game: Literal["lotto"] = "lotto"
+    draw_date: None = None
+    bonus: None = None
+    jackpot: None = None
+    outcome: None = None
+    prizes: list = Field(default_factory=list, max_length=0)
+    mains: tuple[StrictInt, ...]
+    source_numbers: tuple[StrictInt, ...]
+    pool: StrictInt = Field(ge=7, le=99)
+    source_row: StrictInt = Field(ge=1)
+    source_url: str
+    reported_period_start: date
+    reported_period_end: date
+    attribution: str
+    usage: Literal["private_unpublished_analysis"] = "private_unpublished_analysis"
+
+    @model_validator(mode="after")
+    def valid(self):
+        validate_source_url(self.source_url)
+        if (
+            len(self.mains) != 6
+            or len(set(self.mains)) != 6
+            or tuple(sorted(self.mains)) != self.mains
+            or tuple(sorted(self.source_numbers)) != self.mains
+            or any(n < 1 or n > self.pool for n in self.mains)
+            or self.reported_period_start > self.reported_period_end
+        ):
+            raise ValueError("Invalid undated winning-number observation")
+        return self
+
+
 class PrizeObservation(BaseModel):
     tier: str
     winners: StrictInt | None = Field(default=None, ge=0)
