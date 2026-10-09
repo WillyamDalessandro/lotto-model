@@ -1,6 +1,6 @@
 # Project foundation and phased delivery
 
-Date: 9 October 2026. Status: proposed design for review; infrastructure and ingestion are not implemented.
+Date: 9 October 2026. Status: foundation approved; detailed phase 1 plan prepared for review. Infrastructure and ingestion are not implemented.
 
 ## Repository audit
 
@@ -68,9 +68,11 @@ Repeated ingestion must leave canonical counts unchanged. A source correction cr
 | 3 — Data audit and freeze | Regime verification, reconciliation, completeness report, snapshot and backups | Dataset rebuildable; every accepted draw has evidence; gaps explicitly listed |
 | 4 — Model design and baselines | Updated experiment spec, exact odds, random/frequency policies, frozen chronological split | Leakage and baseline checks pass; evaluation protocol frozen before tuning |
 | 5 — Experiments | Logistic and bounded boosting candidates, locked holdout, uncertainty and model card | Independent metric reconciliation; no unsupported advantage claim |
-| 6 — Prospective research | Pre-result prediction records, incremental refresh and ongoing evaluation | Eligible current-regime lines; immutable cutoffs; sufficient evidence reported honestly |
+| 6 — Prospective research and manual play support | Pre-result prediction records, Playwright public-result access, incremental refresh, configurable per-draw/weekly spending tracker and manual-purchase preparation | Eligible current-regime lines; immutable cutoffs; spending limits enforced in preparation; purchase remains manual |
 
-Each phase gets its own implementation scope and checks. Never begin training to compensate for an incomplete data audit.
+Each phase gets its own implementation scope and checks. Never begin training to compensate for an incomplete data audit. Playwright result access will preserve retrieved evidence and follow the same source access policy as HTTP collection. Budget values must be defined before implementing spending tracking; automated ticket purchasing is outside scope.
+
+The detailed [phase 1 implementation plan](superpowers/plans/2026-10-09-local-stack.md) defines the package, database, checks and delivery sequence.
 
 ## Source discovery and acquisition
 
