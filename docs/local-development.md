@@ -32,7 +32,7 @@ uv run pytest -q
 git diff --check
 ```
 
-Integration tests are mandatory and fail if LOTTO_TEST_DATABASE_URL is missing. They upgrade the isolated database to the latest schema, rerun the migration, verify constraints and roll back synthetic rows. They reject database names that do not end in `_test`. Use a dedicated test server/user as shown in Compose, never a URL pointing at research data. Run CI with its own ephemeral PostgreSQL service.
+Integration tests are mandatory and fail if LOTTO_TEST_DATABASE_URL is missing. They upgrade the isolated database to the latest schema, rerun the migration, verify constraints and roll back synthetic rows. They reject database names that do not end in `_test` and reject URL query parameters that could override the connection target. Use a dedicated test server/user as shown in Compose, never a URL pointing at research data. Run CI with its own ephemeral PostgreSQL service.
 
 Runtime dependencies are installed by default. `uv sync --locked --extra research` additionally installs the notebook and modelling tools when those phases begin.
 

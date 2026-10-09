@@ -11,8 +11,10 @@ from sqlalchemy.engine import make_url
 
 def require_test_url(url):
     parsed = make_url(url)
-    if parsed.drivername != "postgresql+psycopg" or not (
-        parsed.database and parsed.database.endswith("_test")
+    if (
+        parsed.drivername != "postgresql+psycopg"
+        or parsed.query
+        or not (parsed.database and parsed.database.endswith("_test"))
     ):
         raise ValueError("Integration tests require a PostgreSQL database ending _test")
     return url
