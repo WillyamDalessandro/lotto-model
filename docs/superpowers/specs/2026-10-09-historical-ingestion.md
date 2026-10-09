@@ -1,6 +1,6 @@
 # Phase 2: historical collection and ingestion
 
-Date: 9 October 2026. Status: proposed for review. No bulk collection or ingestion has run.
+Date: 9 October 2026. Status: expanded spec approved; [implementation plan](../plans/2026-10-09-historical-ingestion.md) prepared for review. No bulk collection or ingestion has run.
 
 ## Goal
 
@@ -8,7 +8,7 @@ Gather the longest accessible public Irish main Lotto history and complementary 
 
 ## Complementary data scope
 
-The [complementary data catalogue](../../complementary-data.md) is part of this spec. Required context includes published prize breakdowns, jackpot pools/outcomes, evidence-backed rules/prices and full calendar/schedule exceptions. Add chronological rollover context, prize-value summaries and descriptive number features as derived outputs with lineage. Public winning-ticket locations/channels and official period-level sales/prize/participation metrics are best-effort source acquisitions; report availability instead of inventing missing observations. Holidays are a proposed optional extension pending scope selection. External weather/economic datasets are not yet approved scope.
+The [complementary data catalogue](../../complementary-data.md) is part of this spec. Required context includes published prize breakdowns, jackpot pools/outcomes, evidence-backed rules/prices and full calendar/schedule exceptions. Add chronological rollover context, prize-value summaries and descriptive number features as derived outputs with lineage. Public winning-ticket locations/channels and official period-level sales/prize/participation metrics are best-effort source acquisitions; report availability instead of inventing missing observations. Holidays and external weather/economic datasets remain outside this implementation; their optional scope question was not answered explicitly.
 
 Use separate relations for ticket reports, effective rule attributes, calendar events and official period metrics. Capture source publication time separately from retrieval and effective dates. Preserve every original currency, prize type and location meaning. Do not confuse post-draw context with pre-draw predictors or annual aggregates with per-draw values.
 
