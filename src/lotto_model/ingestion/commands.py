@@ -253,3 +253,41 @@ def rules(manifest: Path, records: Path):
         typer.echo(f"Registered {len(definitions)} rule intervals")
     finally:
         engine.dispose()
+
+
+@app.command()
+@safe_command
+def batch(batch_path: Path, receipt: Path | None = None, root: Path = Path("data/raw")):
+    """Apply a reviewed offline acquisition batch in one transaction."""
+    from lotto_model.ingestion.batch import run_batch
+
+    engine = create_engine_from_settings(Settings())
+    try:
+        result = run_batch(engine, batch_path, receipt, root)
+    except ValidationError:
+        raise ValueError("Invalid batch") from None
+    finally:
+        engine.dispose()
+    summary = {k: result[k] for k in ("digest", "counts", "status")}
+    if "receipt_error" in result:
+        summary["receipt_error"] = result["receipt_error"]
+    typer.echo(json.dumps(summary, sort_keys=True))
+
+
+@app.command("acquisition-status")
+@safe_command
+def acquisition_status_command(output: Path | None = None):
+    """Report measured acquisition availability and outstanding mandatory inputs."""
+    from lotto_model.ingestion.report import acquisition_status
+
+    engine = create_engine_from_settings(Settings())
+    try:
+        with engine.connect() as conn:
+            value = json.dumps(acquisition_status(conn), default=str, indent=2)
+    finally:
+        engine.dispose()
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(value + "\n", encoding="utf8")
+    else:
+        typer.echo(value)

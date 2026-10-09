@@ -28,3 +28,15 @@ def test_bad_settings_report_is_sanitized(monkeypatch):
     assert result.exit_code == 1
     assert "failed" in result.output.lower()
     assert "private-credential-marker" not in result.output
+
+
+def test_batch_and_status_failures_are_sanitized(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOTTO_DATABASE_URL", "private-credential-marker")
+    for args in (
+        ["data", "batch", str(tmp_path / "missing.json")],
+        ["data", "acquisition-status"],
+    ):
+        result = runner.invoke(app, args)
+        assert result.exit_code == 1
+        assert "failed" in result.output.lower()
+        assert "private-credential-marker" not in result.output

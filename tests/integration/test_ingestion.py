@@ -68,6 +68,29 @@ def test_unknown_rule_staged(connection, tmp_path):
     assert connection.scalar(text("SELECT count(*) FROM draws")) == 0
 
 
+def test_unknown_bonus_stays_null_and_later_fills(connection, tmp_path):
+    repo, artifact = setup_repository(connection, tmp_path)
+    assert repo.ingest(observation(bonus=None), artifact) == "accepted"
+    assert (
+        connection.scalar(text("SELECT count(*) FROM draw_numbers WHERE role='bonus'"))
+        == 0
+    )
+    other = EvidenceStore(tmp_path).write(
+        b"bonus evidence",
+        url="https://example.test/results",
+        http_status=200,
+        content_type="text/html",
+        status="valid",
+    )
+    run = repo.start_run({"test": True})
+    other_id = repo.record_artifact(other, run, "test_source", "independent")
+    assert repo.ingest(observation(), other_id) == "corroborated"
+    assert (
+        connection.scalar(text("SELECT number FROM draw_numbers WHERE role='bonus'"))
+        == 7
+    )
+
+
 def test_ineligible_numbers_staged(connection, tmp_path):
     repo, artifact = setup_repository(connection, tmp_path)
     assert repo.ingest(observation(bonus=46), artifact) == "staged"

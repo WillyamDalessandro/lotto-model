@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -7,6 +9,8 @@ from alembic.config import Config
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
+
+from lotto_model.ingestion.evidence import EvidenceStore
 
 
 def require_test_url(url):
@@ -50,3 +54,102 @@ def connection(db_engine):
         transaction = conn.begin()
         yield conn
         transaction.rollback()
+
+
+DRAWS = (
+    b"date,n1,n2,n3,n4,n5,n6,bonus,jackpot,currency,jackpotWinners\n"
+    b"2026-10-05,3,17,26,29,37,42,38,5000000,EUR,0\n"
+    b"2026-10-07,1,2,3,4,5,6,,,,\n"
+)
+
+
+def _write_batch(root, *, draws=DRAWS, rules=True, enrichment=False, **changes):
+    """Create a self-contained reviewed batch directory and return its path."""
+    root.mkdir(parents=True, exist_ok=True)
+    permission = root / "permission.txt"
+    permission.write_text("Reviewed permission for local research.\n")
+    batch = {
+        "version": 1,
+        "source_code": "test-export",
+        "permission_evidence_path": "permission.txt",
+        "permission_evidence_sha256": hashlib.sha256(
+            permission.read_bytes()
+        ).hexdigest(),
+        "permitted_use": "local_research",
+        "evidence_root": ".",
+        "adapter": "csv",
+    }
+    if draws is not None:
+        store = EvidenceStore(root / "draws")
+        store.write(
+            draws,
+            url="https://example.test/export.csv",
+            http_status=200,
+            content_type="text/csv",
+            status="valid",
+        )
+        batch["draw_manifest"] = "draws/manifest.json"
+    if rules:
+        store = EvidenceStore(root / "rules")
+        store.write(
+            b"rules evidence",
+            url="https://example.test/rules.pdf",
+            http_status=200,
+            content_type="application/pdf",
+            status="valid",
+        )
+        records = [
+            {
+                "artifact_index": 0,
+                "code": "6/45",
+                "starts_on": "2026-09-01",
+                "ends_on": None,
+                "pool": 45,
+                "schedule": [0, 2, 5],
+            }
+        ]
+        (root / "rules.json").write_text(json.dumps(records))
+        batch |= {
+            "rules_manifest": "rules/manifest.json",
+            "rules_records": "rules.json",
+        }
+    if enrichment:
+        store = EvidenceStore(root / "enrichment")
+        store.write(
+            b"calendar evidence",
+            url="https://example.test/calendar",
+            http_status=200,
+            content_type="text/html",
+            status="valid",
+        )
+        records = [
+            {
+                "artifact_index": 0,
+                "record": {
+                    "dataset": "calendar_events",
+                    "record_key": "lotto:2026-12-25",
+                    "payload": {
+                        "day": "2026-12-25",
+                        "scheduled": False,
+                        "description": "No draw",
+                        "game": "lotto",
+                    },
+                },
+            }
+        ]
+        if enrichment == "invalid":
+            records[0]["record"]["payload"].pop("scheduled")
+        (root / "enrichment.json").write_text(json.dumps(records))
+        batch |= {
+            "enrichment_manifest": "enrichment/manifest.json",
+            "enrichment_records": "enrichment.json",
+        }
+    batch |= changes
+    path = root / "batch.json"
+    path.write_text(json.dumps({k: v for k, v in batch.items() if v is not ...}))
+    return path
+
+
+@pytest.fixture
+def write_batch():
+    return _write_batch

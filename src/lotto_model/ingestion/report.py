@@ -155,3 +155,72 @@ def query_prizes(conn, draw):
             {"d": draw},
         ).mappings()
     ]
+
+
+MANDATORY = ("dated_draws", "verified_rules", "prize_breakdowns", "jackpot_context")
+
+
+def acquisition_status(conn):
+    """Measured acquisition availability; never declares phase completion itself."""
+
+    def one(sql):
+        return dict(conn.execute(text(sql)).mappings().one())
+
+    draws = one(
+        "SELECT count(*) FILTER (WHERE d.status='accepted') AS accepted, "
+        "count(*) FILTER (WHERE d.status='quarantined') AS quarantined, "
+        "count(*) FILTER (WHERE d.status='pending') AS pending, "
+        "min(d.draw_date) FILTER (WHERE d.status='accepted') AS first, "
+        "max(d.draw_date) FILTER (WHERE d.status='accepted') AS last "
+        "FROM draws d JOIN games g ON g.id=d.game_id WHERE g.code='lotto'"
+    )
+    fields = one(
+        "SELECT count(*) FILTER (WHERE EXISTS (SELECT 1 FROM draw_numbers n "
+        "WHERE n.draw_id=d.id AND n.role='bonus')) AS with_bonus, "
+        "count(*) FILTER (WHERE EXISTS (SELECT 1 FROM prize_tiers p "
+        "WHERE p.draw_id=d.id)) AS with_prizes, "
+        "count(*) FILTER (WHERE EXISTS (SELECT 1 FROM draw_context c "
+        "WHERE c.draw_id=d.id AND c.jackpot_amount IS NOT NULL "
+        "AND NOT c.disputed)) AS with_jackpot, "
+        "count(*) FILTER (WHERE EXISTS (SELECT 1 FROM draw_context c "
+        "WHERE c.draw_id=d.id AND c.outcome IS NOT NULL "
+        "AND NOT c.disputed)) AS with_outcome "
+        "FROM draws d JOIN games g ON g.id=d.game_id "
+        "WHERE g.code='lotto' AND d.status='accepted'"
+    )
+    observations = one(
+        "SELECT count(*) FILTER (WHERE status='staged') AS staged, "
+        "count(*) FILTER (WHERE payload->>'observation_kind'='undated') AS undated, "
+        "count(*) FILTER (WHERE status='quarantined') AS quarantined "
+        "FROM source_observations"
+    )
+    rules = conn.scalar(
+        text(
+            "SELECT count(*) FROM rule_regimes r JOIN games g ON g.id=r.game_id "
+            "WHERE g.code='lotto' AND r.evidence_url IS NOT NULL"
+        )
+    )
+    annual = conn.scalar(text("SELECT count(*) FROM official_period_metrics"))
+    present = {
+        "dated_draws": draws["accepted"] > 0,
+        "verified_rules": rules > 0,
+        "prize_breakdowns": fields["with_prizes"] > 0,
+        "jackpot_context": fields["with_jackpot"] > 0,
+    }
+    return dict(
+        version=1,
+        dated_main_lotto=draws,
+        accepted_field_coverage=fields,
+        evidence_backed_rules=rules,
+        staged_observations=observations,
+        annual_all_games_metrics=annual,
+        annual_metrics_scope="All games, annual; never draw-level coverage",
+        mandatory_inputs={k: "present" if present[k] else "missing" for k in MANDATORY},
+        outstanding=[k for k in MANDATORY if not present[k]],
+        complete=False,
+        complete_reason=(
+            "Completion requires a reviewed acquisition assessment, idempotent "
+            "replay, isolated reconstruction and backup restore; measured "
+            "availability alone never completes phase 2"
+        ),
+    )

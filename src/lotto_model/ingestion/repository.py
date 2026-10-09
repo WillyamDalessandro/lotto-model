@@ -224,7 +224,10 @@ class Repository:
             ).all()
             old_mains = tuple(sorted(n for n, r in numbers if r == "main"))
             old_bonus = next((n for n, r in numbers if r == "bonus"), None)
-            if old_mains != observation.mains or old_bonus != observation.bonus:
+            bonus_conflict = None not in (old_bonus, observation.bonus) and (
+                old_bonus != observation.bonus
+            )
+            if old_mains != observation.mains or bonus_conflict:
                 resolved = self.sql(
                     """SELECT id FROM quality_issues WHERE draw_id=:d AND kind='number_conflict'
                     AND resolved_at IS NOT NULL AND resolution_observation_id=:accepted
@@ -254,6 +257,13 @@ class Repository:
                 return "quarantined"
             if existing["status"] == "quarantined":
                 return "quarantined"
+            if old_bonus is None and observation.bonus is not None:
+                # A compatible later observation may supply an unknown bonus.
+                self.sql(
+                    "INSERT INTO draw_numbers(draw_id,number,role) VALUES(:d,:n,'bonus')",
+                    d=draw,
+                    n=observation.bonus,
+                )
             result = "corroborated"
         else:
             draw = self.sql(
@@ -269,11 +279,12 @@ class Repository:
                     d=draw,
                     n=number,
                 )
-            self.sql(
-                "INSERT INTO draw_numbers(draw_id,number,role) VALUES(:d,:n,'bonus')",
-                d=draw,
-                n=observation.bonus,
-            )
+            if observation.bonus is not None:
+                self.sql(
+                    "INSERT INTO draw_numbers(draw_id,number,role) VALUES(:d,:n,'bonus')",
+                    d=draw,
+                    n=observation.bonus,
+                )
             result = "accepted"
         if observation.draw_date.weekday() not in rule["schedule"]:
             self.issue(
@@ -407,7 +418,8 @@ class Repository:
         # Old enrichment remains in immutable observations; do not attach it to corrected numbers.
         self.sql("DELETE FROM prize_tiers WHERE draw_id=:d", d=draw["id"])
         self.sql("DELETE FROM draw_context WHERE draw_id=:d", d=draw["id"])
-        for number, role in [*((n, "main") for n in row.mains), (row.bonus, "bonus")]:
+        bonus = [] if row.bonus is None else [(row.bonus, "bonus")]
+        for number, role in [*((n, "main") for n in row.mains), *bonus]:
             self.sql(
                 "INSERT INTO draw_numbers(draw_id,number,role) VALUES(:d,:n,:r)",
                 d=draw["id"],
