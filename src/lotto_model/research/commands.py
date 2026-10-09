@@ -106,3 +106,133 @@ def baselines(
         b"".join(canonical_json(r.model_dump(mode="json")) for r in records),
     )
     typer.echo(json.dumps(dict(path=str(out), summary=result["summary"])))
+
+
+def _engine():
+    from lotto_model.config import Settings
+    from lotto_model.db import create_engine_from_settings
+
+    return create_engine_from_settings(Settings())
+
+
+@app.command()
+@safe_command
+def develop(protocol_dir: Path, snapshot: Path = typer.Option(...)):
+    """Score the six fixed candidates on development folds only."""
+    from lotto_model.research.experiment import run_development_outputs
+
+    out = run_development_outputs(protocol_dir, snapshot)
+    summary = json.loads((out / "development.json").read_text(encoding="utf8"))
+    typer.echo(json.dumps(dict(path=str(out), selected=summary["selected"])))
+
+
+@app.command()
+@safe_command
+def freeze(development_dir: Path):
+    """Freeze the selected configuration before any holdout access."""
+    from lotto_model.research.experiment import freeze_selection
+
+    out = freeze_selection(development_dir)
+    typer.echo(json.dumps(dict(path=str(out), identity=out.name)))
+
+
+@app.command()
+@safe_command
+def holdout(frozen_dir: Path, snapshot: Path = typer.Option(...)):
+    """Run (or resume) the locked holdout once under the frozen identity."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from lotto_model.research.experiment import run_holdout
+
+    engine = _engine()
+    try:
+        out = run_holdout(engine, frozen_dir, snapshot)
+    except SQLAlchemyError:
+        raise ValueError("Database failure") from None
+    finally:
+        engine.dispose()
+    typer.echo(json.dumps(dict(path=str(out))))
+
+
+@app.command()
+@safe_command
+def nulls(frozen_dir: Path, snapshot: Path = typer.Option(...), count: int = 10_000):
+    """Checkpointed null-history refits of the frozen pipeline (resumable)."""
+    from lotto_model.research.experiment import load_frozen
+    from lotto_model.research.inference import run_null_replicates
+    from lotto_model.research.protocol import verified_population
+
+    frozen, _, protocol = load_frozen(frozen_dir)
+    draws = verified_population(protocol, snapshot)
+    result = run_null_replicates(
+        frozen, protocol, draws, count, Path(frozen_dir) / "holdout" / "nulls"
+    )
+    typer.echo(json.dumps(dict(count=result["count"], final=result["final"])))
+
+
+@app.command()
+@safe_command
+def reconcile(frozen_dir: Path, snapshot: Path = typer.Option(...)):
+    """Independently recompute holdout outputs from raw files."""
+    from lotto_model.research.reconcile import reconcile_outputs
+
+    result = reconcile_outputs(Path(frozen_dir) / "holdout", snapshot)
+    typer.echo(json.dumps(result))
+
+
+@app.command()
+@safe_command
+def report(frozen_dir: Path, snapshot: Path = typer.Option(...)):
+    """Write report.md and model-card.md from reconciled outputs."""
+    from lotto_model.research.experiment import load_frozen
+    from lotto_model.research.inference import run_null_replicates
+    from lotto_model.research.protocol import verified_population
+    from lotto_model.research.reconcile import reconcile_outputs
+    from lotto_model.research.reporting import build_findings, write_findings
+
+    frozen, identity, protocol = load_frozen(frozen_dir)
+    output = Path(frozen_dir) / "holdout"
+    reconciled = reconcile_outputs(output, snapshot)
+    checkpoints = output / "nulls"
+    existing = len(list(checkpoints.glob("*.json"))) if checkpoints.exists() else 0
+    null = None
+    if existing:
+        draws = verified_population(protocol, snapshot)
+        null = run_null_replicates(frozen, protocol, draws, existing, checkpoints)
+    findings = build_findings(
+        output, reconciled, null, protocol.pool, int(identity[:8], 16)
+    )
+    path = write_findings(output, findings, protocol.digest)
+    typer.echo(json.dumps(dict(path=str(path), verdict=findings["verdict"])))
+
+
+@app.command("predict")
+@safe_command
+def predict_command(
+    frozen_dir: Path,
+    snapshot: Path = typer.Option(...),
+    target_date: str = typer.Option(...),
+    target_gap: bool = typer.Option(
+        False, help="A scheduled draw is missing immediately before the target."
+    ),
+):
+    """Research inference for a later date from the verified snapshot history."""
+    from datetime import date
+
+    from lotto_model.research.experiment import load_frozen
+    from lotto_model.research.predictor import predict_next
+    from lotto_model.research.protocol import load_population
+
+    frozen, _, protocol = load_frozen(frozen_dir)
+    # Any verified snapshot of the same regime may supply the later history.
+    history = load_population(snapshot, protocol.rule_code)
+    target = date.fromisoformat(target_date)
+    value = predict_next(
+        frozen,
+        [d for d in history if d.draw_date < target],
+        target,
+        protocol.pool,
+        target_gap,
+        root_seed=protocol.root_seed,
+    )
+    typer.echo(json.dumps(value))
