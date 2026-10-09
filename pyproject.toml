@@ -7,7 +7,15 @@ name = "lotto-model"
 version = "0.1.0"
 description = "Reproducible Irish Lotto research and data ingestion"
 requires-python = ">=3.12,<3.13"
-dependencies = ["sqlalchemy>=2,<3", "psycopg[binary]>=3,<4", "alembic>=1.16,<2", "pydantic-settings>=2,<3", "typer>=0.16,<1"]
+dependencies = [
+    "sqlalchemy>=2,<3",
+    "psycopg[binary]>=3,<4",
+    "alembic>=1.16,<2",
+    "pydantic-settings>=2,<3",
+    "typer>=0.16,<1",
+    "httpx>=0.28.1",
+    "beautifulsoup4>=4.15.0",
+]
 
 [project.optional-dependencies]
 research = ["pandas>=2,<4", "numpy>=2,<3", "scipy>=1.15,<2", "scikit-learn>=1.6,<2", "jupyterlab>=4,<5", "matplotlib>=3.10,<4"]
@@ -26,3 +34,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Keep frozen SQL readable; Python expressions are formatted normally.
+"migrations/versions/0002_ingestion.py" = ["E501"]
+"src/lotto_model/ingestion/repository.py" = ["E501"]
+"src/lotto_model/ingestion/complementary.py" = ["E501"]

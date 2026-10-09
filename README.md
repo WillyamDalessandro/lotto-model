@@ -19,7 +19,7 @@ Read [the implementation plan](docs/implementation-plan.md) for data contracts, 
 
 ## Status
 
-Phase 1 implements the local Python/PostgreSQL stack, schema migrations, draw contracts, CLI checks and CI. See [local development](docs/local-development.md) for setup, tests and backups. The previously described external data exports are not committed here. Historical ingestion and model training remain later phases.
+Phase 1 implements the local Python/PostgreSQL stack. Phase 2 adds evidence storage, offline draw imports, reconciliation, complementary imports, official report metrics and coverage reporting. See [ingestion operations](docs/ingestion.md) and [actual coverage and remaining gates](docs/phase2-coverage.md). Historical acquisition is incomplete because reviewed draw sources restrict harvesting; permitted exports are needed. Model training remains deferred. See [local development](docs/local-development.md) for setup, tests and backups.
 
 The initial historical experiment uses the 6/47 regime. The small 6/45 sample is not sufficient for reliable evaluation. Historical prize-sharing correlations are not evidence that winning numbers can be predicted. A result showing no advantage over random selection is a valid outcome.
 

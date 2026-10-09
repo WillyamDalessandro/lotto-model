@@ -1,5 +1,6 @@
 import pytest
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from typer.testing import CliRunner
@@ -10,7 +11,10 @@ from lotto_model.cli import app
 def test_upgrade_is_idempotent(db_engine, migration_config):
     command.upgrade(migration_config, "head")
     with db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT version_num FROM alembic_version")) == "0001"
+        assert (
+            conn.scalar(text("SELECT version_num FROM alembic_version"))
+            == ScriptDirectory.from_config(migration_config).get_current_head()
+        )
         tables = (
             conn.execute(
                 text(

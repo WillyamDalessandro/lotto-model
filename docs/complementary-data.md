@@ -1,6 +1,6 @@
 # Complementary data catalogue
 
-Date: 9 October 2026. Status: proposed phase 2 extension, not collected. This catalogue extends the historical draw pipeline; it does not claim any of these datasets exist locally.
+Date: 9 October 2026. Status: phase 2 catalogue; import contracts implemented, acquisition incomplete. See [measured coverage](phase2-coverage.md) for actual data and remaining gaps.
 
 ## Required lottery context
 

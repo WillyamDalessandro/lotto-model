@@ -1,0 +1,30 @@
+from typer.testing import CliRunner
+
+from lotto_model.cli import app
+
+runner = CliRunner()
+
+
+def test_collect_explains_source_policy_without_network():
+    result = runner.invoke(app, ["data", "collect"])
+    assert result.exit_code == 2
+    assert "harvesting" in result.output
+
+
+def test_prepare_invalid_csv_has_sanitized_error(tmp_path):
+    path = tmp_path / "export.csv"
+    path.write_text("wrong,data\n1,2\n")
+    result = runner.invoke(
+        app, ["data", "prepare", str(path), "--root", str(tmp_path / "raw")]
+    )
+    assert result.exit_code == 1
+    assert "failed" in result.output.lower()
+    assert not (tmp_path / "raw" / "manifest.json").exists()
+
+
+def test_bad_settings_report_is_sanitized(monkeypatch):
+    monkeypatch.setenv("LOTTO_DATABASE_URL", "private-credential-marker")
+    result = runner.invoke(app, ["data", "report"])
+    assert result.exit_code == 1
+    assert "failed" in result.output.lower()
+    assert "private-credential-marker" not in result.output

@@ -4,6 +4,15 @@
 
 **Goal:** Collect the accessible Irish Lotto history and complementary lottery context into local PostgreSQL with evidence, resumable fetching and measured coverage.
 
+**Execution status, 9 October:** ingestion foundation implemented and verified;
+historical acquisition and phase completion remain incomplete. Reviewed archive
+and operator policies prevent the planned automated backfill. Two open-government
+annual metrics were collected; calendar dates retain unknown schedules. See
+[actual coverage](../../phase2-coverage.md). Implemented adapters live in one
+parsers.py module, and reviewed access policy lives in fetch.py. Curated imports
+replace automatic story/report table extraction for this milestone. No dated
+rule intervals were seeded without reviewable evidence.
+
 **Architecture:** Source-specific parsers produce validated observations without network or database access. A content-addressed evidence store and bounded HTTP client preserve retrievals; a transactional repository reconciles observations with canonical records. CLI workflows connect those components and emit inspectable coverage and enrichment reports.
 
 **Tech Stack:** Existing Python 3.12/uv, PostgreSQL 18, SQLAlchemy/psycopg, Alembic, Pydantic/Typer; add httpx and beautifulsoup4. pytest/Ruff remain the verification tools.

@@ -795,6 +795,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "beautifulsoup4" },
+    { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic-settings" },
     { name = "sqlalchemy" },
@@ -820,6 +822,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.16,<2" },
+    { name = "beautifulsoup4", specifier = ">=4.15.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "jupyterlab", marker = "extra == 'research'", specifier = ">=4,<5" },
     { name = "matplotlib", marker = "extra == 'research'", specifier = ">=3.10,<4" },
     { name = "numpy", marker = "extra == 'research'", specifier = ">=2,<3" },
