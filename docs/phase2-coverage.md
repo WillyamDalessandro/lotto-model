@@ -1,49 +1,50 @@
 # Phase 2 measured coverage
 
-As of 9 October 2026: ingestion foundation implemented; historical acquisition
-incomplete. No historical draw dataset is present in the research database.
+As of 10 October 2026, the full main-Lotto draw history has been backfilled by
+the repository's own ingestion (`lotto data collect`), and an audited snapshot
+exists.
 
-| Dataset | Research database coverage | Reason / next input |
+| Dataset | Research database coverage | Source / remaining gap |
 |---|---|---|
-| Accepted / staged draws | 0 / 0 | A permitted draw export or collection source is required |
-| Prizes / jackpots | 0 / 0 | Depend on draw/source evidence |
-| Verified rule intervals / attributes | 0 / 0 | Require reviewed dated evidence; no guessed intervals seeded |
-| Calendar dates | 14,162 dates, 1988-01-01 through 2026-10-09 | All schedules unknown; no accepted draws observed |
-| Public winning-ticket metadata | 0 | Operator story harvesting disabled; curated import available |
-| Official period metrics | 2 metrics for 2021, all National Lottery games | Online sales share and prizes won as share of ticket sales |
-| Derived number / prize / rollover rows | 0 | No accepted draw input |
+| Accepted dated draws | 3,909, from 16 April 1988 to 7 October 2026 | lotto.net yearly archives (ruling 23) |
+| Staged dated draws | 1 (Wednesday 1 November 2006) | Exact 6/42 to 6/45 switch date unverified (ruling 25) |
+| Draws with bonus | 3,566 | Lotto had no bonus before 22 August 1992 |
+| Draws with jackpot amount | 2,589 (euro era only) | Pre-2002 converted amounts are not imported (ruling 27) |
+| Draws with jackpot outcome (Won/Roll) | 1,703 | Only where the archive marks the outcome |
+| Verified rule intervals | 7: 6/36 Saturday-only, 6/36, 6/39, 6/42, 6/45, 6/47 and 6/45-2026 | Wikipedia (CC BY-SA) and the 2015 trade announcement |
+| Reviewed schedule exceptions | 23 calendar events | Christmas and moved draws, bound to archive evidence |
+| Prize breakdowns | 0 | lotto.net per-draw pages exist, at about 3,900 requests (≈5.5 h at the crawl delay); not needed for training |
+| Undated 6/42 combinations | 264 (journal dataset) | Kept staged; no individual draw dates |
+| Official period metrics | 112 annual all-games metrics | Regulator and C&AG; not draw-level |
 
-The official metrics come from the [Comptroller and Auditor General report,
-chapter 19](https://www.audit.gov.ie/en/find-report/publications/2022/19-exchequer-receipts-from-national-lottery-ticket-sales.pdf),
-paragraphs 19.10 and 19.11. [The government catalogue](https://data.gov.ie/dataset/exchequer-receipts-from-national-lottery-ticket-sales)
-declares CC BY 4.0. Values are 16.6% online sales and 55.6% prizes won / ticket
-sales. They describe annual all-games activity and cannot be assigned to an
-individual Lotto draw. Exact publication time is unknown. The PDF, catalogue
-metadata, URL, retrieval time and SHA-256 are saved locally.
+Draws per rule regime in the snapshot: 6/36-saturday 111, 6/36 232, 6/39 218,
+6/42 1,263, 6/45 922, 6/47 1,148, 6/45-2026 15.
 
-## Acquisition limits discovered
+## Snapshot
 
-The [historical archive terms](https://irish.national-lottery.com/terms), section
-3.1.7, prohibit harvesting; [the alternative publisher's terms](https://www.irishlottery.com/terms-and-conditions)
-contain the same restriction. [Operator terms](https://www.lottery.ie/legal/terms-and-conditions)
-permit personal reference but require permission for extraction/integration.
-Those hosts are disabled for automated ingestion. Existing small discovery
-snapshots remain local and were not ingested as a historical dataset.
+`lotto audit report` for 1988-04-16 to 2026-10-09 includes all 3,909 draws,
+excludes none, finds no missing or unexpected scheduled dates and is
+`snapshot_ready`. The bundle is
+`data/snapshots/a3ea572d5deacd3cd80336a8cc682d55f4e8c25c4979b789c9b8572d1744766d`.
 
-Other candidates did not provide an accessible approved export: PickMySix and
-the author-shared S3 JSON returned 403, while a CSV provider required an account.
-No account was created and no access restriction was bypassed. A government
-catalogue search found no draw-result dataset. The previously described external
-527-draw collection is not in this repository.
+## Source policy
 
-## Remaining completion gates
+- Allowed: lotto.net (disclaimer allows personal use; no harvesting
+  prohibition; robots.txt allows the paths). Requests use a 5-second crawl
+  delay. Past years are cached and never refetched.
+- Restricted (terms prohibit harvesting or require permission):
+  irish.national-lottery.com, irishlottery.com, lottery.co.uk, lottery.ie.
+  `AccessPolicy` refuses these hosts.
+- All fetched evidence, the database and snapshots stay under `data/`, which is
+  git-ignored and never pushed.
 
-Obtain permitted draw exports and dated rule evidence; import/backfill them;
-measure actual year/regime/field completeness; compare overlapping sources;
-reconstruct in the test database; and preserve evidence/database backups. Prize,
-rule and jackpot acquisition are mandatory phase 2 deliverables, so phase 2 is
-not complete. Model training remains deferred. Public stories and additional
-official report metrics remain best-effort acquisitions.
+## Reproduce
 
-Operational JSON is generated with `lotto data report`; it is intentionally
-ignored rather than committed as a misleading permanent snapshot.
+```bash
+uv run lotto data collect
+uv run lotto data enrich data/raw/backfill-import/manifest.json data/reviews/calendar-exceptions.json
+uv run lotto audit snapshot --start 1988-04-16 --end 2026-10-09 --evidence-root data --bindings data/reviews/rule-bindings.json
+```
+
+Phase 2's formal completion still lists prize breakdowns as outstanding, along
+with the backup/restore review.

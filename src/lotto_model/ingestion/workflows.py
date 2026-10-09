@@ -8,7 +8,12 @@ from urllib.parse import parse_qs, urlparse
 
 from lotto_model.ingestion.contracts import Observation, validate_source_url
 from lotto_model.ingestion.evidence import EvidenceStore
-from lotto_model.ingestion.parsers import parse_archive, parse_detail, parse_operator
+from lotto_model.ingestion.parsers import (
+    parse_archive,
+    parse_detail,
+    parse_lottonet_year,
+    parse_operator,
+)
 from lotto_model.ingestion.repository import Repository
 
 
@@ -82,6 +87,8 @@ def parse_saved(body, url, adapter):
             ):
                 raise ValueError("Unsupported detail path")
             return [parse_detail(body, url)]
+        if host == "www.lotto.net":
+            return parse_lottonet_year(body, url)
         raise ValueError("Unsupported source adapter; use an explicit CSV import")
     raise ValueError("Unsupported adapter")
 

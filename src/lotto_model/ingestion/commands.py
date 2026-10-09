@@ -168,16 +168,24 @@ def report(output: Path | None = None):
 
 @app.command()
 @safe_command
-def collect(start_year: int = 1988, end_year: int = 2026, max_requests: int = 100):
-    """Report why the planned archive backfill cannot run under current policies."""
-    if not 1988 <= start_year <= end_year <= date.today().year or max_requests < 1:
+def collect(
+    start_year: int = 1988,
+    end_year: int | None = None,
+    max_requests: int = 100,
+    root: Path = Path("data/raw"),
+):
+    """Backfill the full draw history from reviewed permitted sources."""
+    from lotto_model.ingestion.backfill import backfill
+
+    current = date.today().year
+    if not 1988 <= start_year <= (end_year or current) <= current or max_requests < 1:
         raise typer.BadParameter("Invalid year range or request budget")
-    typer.echo(
-        "Historical collection is unavailable: reviewed archives prohibit "
-        "harvesting. Import a permissible saved export with `lotto data import`.",
-        err=True,
-    )
-    raise typer.Exit(2)
+    engine = create_engine_from_settings(Settings())
+    try:
+        result = backfill(engine, root, start_year, end_year, max_requests=max_requests)
+        typer.echo(json.dumps(result))
+    finally:
+        engine.dispose()
 
 
 @app.command()

@@ -211,3 +211,76 @@ def parse_operator(body: bytes, url: str) -> list[Observation]:
     if not output:
         raise ParseError("No operator main Lotto results")
     return output
+
+
+LOTTONET_DATE = re.compile(
+    r"(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) "
+    r"([A-Z][a-z]+) (\d{1,2})(?:st|nd|rd|th) (\d{4})"
+)
+LOTTONET_OUTCOME = {"Rollover!": "Roll", "Jackpot Won!": "Won"}
+EURO_START = datetime(2002, 1, 1).date()
+SECOND_DRAW_JACKPOT = "€500,000"
+
+
+def parse_lottonet_year(body: bytes, url: str) -> list[Observation]:
+    """One lotto.net yearly archive: date, six mains, bonus, jackpot, outcome."""
+    match = re.fullmatch(r"/irish-lotto/results/(\d{4})", urlparse(url).path)
+    if not match:
+        raise ParseError("Unsupported lotto.net path")
+    year = int(match[1])
+    soup = soup_for(body)
+    output = {}
+    try:
+        for block in soup.select("div.archive-list"):
+            label = block.select_one("div.date").get_text(" ", strip=True)
+            found = LOTTONET_DATE.fullmatch(label)
+            if not found:
+                raise ParseError("Unrecognized draw date")
+            weekday, month, day, published_year = found.groups()
+            draw_date = datetime.strptime(
+                f"{day} {month} {published_year}", "%d %B %Y"
+            ).date()
+            if draw_date.year != year or draw_date.strftime("%A") != weekday:
+                raise ParseError("Draw date disagrees with archive year or weekday")
+            balls = block.select("ul.balls li")
+            mains = [
+                int(b.get_text(strip=True))
+                for b in balls
+                if "bonus-ball" not in b.get("class", [])
+            ]
+            bonus = [
+                int(b.select_one("span").get_text(strip=True))
+                for b in balls
+                if "bonus-ball" in b.get("class", [])
+            ]
+            if len(bonus) > 1:
+                raise ParseError("Several bonus numbers")
+            jackpot, currency = None, None
+            pot = block.select_one("div.jackpot > span")
+            if draw_date in output:
+                # 1994-1998 pages list a fixed-jackpot second draw after the main
+                # Lotto draw on some dates; keep the main draw, reject anything else.
+                if pot is None or pot.get_text(strip=True) != SECOND_DRAW_JACKPOT:
+                    raise ParseError("Duplicate draw date")
+                continue
+            # Pre-euro jackpots are shown converted; the source currency is unknown.
+            if pot is not None and draw_date >= EURO_START:
+                jackpot, currency = money(pot.get_text(strip=True))
+            flag = block.select_one(".rollover")
+            outcome = LOTTONET_OUTCOME.get(flag.get_text(strip=True)) if flag else None
+            output[draw_date] = Observation(
+                draw_date=draw_date,
+                mains=mains,
+                bonus=bonus[0] if bonus else None,
+                source_url=url,
+                jackpot=jackpot,
+                currency=currency,
+                outcome=outcome,
+            )
+    except ParseError:
+        raise
+    except (AttributeError, ValueError, ValidationError) as exc:
+        raise ParseError("Unexpected lotto.net archive structure") from exc
+    if not output:
+        raise ParseError("No draws in archive page")
+    return [output[d] for d in sorted(output)]

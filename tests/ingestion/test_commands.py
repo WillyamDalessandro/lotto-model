@@ -5,10 +5,9 @@ from lotto_model.cli import app
 runner = CliRunner()
 
 
-def test_collect_explains_source_policy_without_network():
-    result = runner.invoke(app, ["data", "collect"])
+def test_collect_rejects_invalid_year_range_without_network():
+    result = runner.invoke(app, ["data", "collect", "--start-year", "1980"])
     assert result.exit_code == 2
-    assert "harvesting" in result.output
 
 
 def test_prepare_invalid_csv_has_sanitized_error(tmp_path):

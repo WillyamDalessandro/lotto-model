@@ -11,6 +11,7 @@ RESTRICTED = {
     "irish.national-lottery.com": "Published terms prohibit data harvesting",
     "www.irishlottery.com": "Published terms prohibit data harvesting",
     "www.lottery.ie": "Extraction requires permission; personal reference only",
+    "www.lottery.co.uk": "Published terms prohibit data harvesting",
     "pickmysix.com": "Direct access returned HTTP 403 during discovery",
 }
 

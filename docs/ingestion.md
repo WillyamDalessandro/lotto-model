@@ -91,3 +91,19 @@ Raw bodies, reports and backups are ignored by Git. Ingestion HTTP defaults deny
 unreviewed hosts, enforce HTTPS and reviewed routes, check redirects, stop access
 denials/CAPTCHAs, bound retries and pace requests. Long Retry-After values defer
 the run. Historical `collect` currently exits with a source-policy explanation.
+
+## Full-history backfill
+
+`lotto data collect [--start-year 1988] [--end-year YYYY] [--max-requests 100]`
+works in three steps:
+
+1. It fetches the reviewed rule evidence and the lotto.net yearly archives into
+   `data/raw/backfill`. Each request waits 5 seconds. Every response is
+   checked for content, and past years are reused from the cache.
+2. It registers the seven reviewed rule intervals (`RULES` in
+   `ingestion/backfill.py`).
+3. It imports exactly the selected archive bodies through the normal evidence
+   import, writing the manifest to `data/raw/backfill-import/manifest.json`.
+
+Rerunning is idempotent; only the current year is refetched. Source policy and
+measured coverage are in [phase2-coverage.md](phase2-coverage.md).
