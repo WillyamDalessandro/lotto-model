@@ -20,3 +20,14 @@ def test_failed_connection_is_sanitised(monkeypatch):
     assert result.exit_code == 1
     assert "Database unavailable" in result.output
     assert "private-secret" not in result.output
+
+
+def test_failed_migration_is_sanitised(monkeypatch):
+    monkeypatch.setenv(
+        "LOTTO_DATABASE_URL",
+        "postgresql+psycopg://user:private-secret@127.0.0.1:1/lotto",
+    )
+    result = runner.invoke(app, ["db", "migrate"])
+    assert result.exit_code == 1
+    assert "Migration failed" in result.output
+    assert "private-secret" not in result.output
