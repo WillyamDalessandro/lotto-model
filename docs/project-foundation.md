@@ -1,10 +1,10 @@
 # Project foundation and phased delivery
 
-Date: 9 October 2026. Status: foundation approved; detailed phase 1 plan prepared for review. Infrastructure and ingestion are not implemented.
+Date: 9 October 2026. Status: foundation approved; phase 1 local stack implemented and verified. Historical ingestion and model training are not implemented.
 
 ## Repository audit
 
-The repository has README.md, docs/data-collection.md and docs/implementation-plan.md. There is no application, dependency manifest, Docker configuration, database migration, collector, dataset, model, dashboard or test suite. The working tree was clean before this planning change.
+At the initial audit the repository had README.md, docs/data-collection.md and docs/implementation-plan.md. It had no application, dependency manifest, Docker configuration, database migration, collector, dataset, model, dashboard or test suite. The working tree was clean before that planning change. Phase 1 has since added the Python package, dependency lock, Compose database services, migrations, contracts, tests and CI; see [local development](local-development.md).
 
 The collection document describes an external snapshot of 527 draws and supporting exports. These are historical claims, not verified repository assets. Recover original CSVs, scripts, cached responses and recovery JSON if available; otherwise rebuild from accessible sources and report the resulting coverage independently. Never fabricate the missing snapshot.
 
@@ -33,7 +33,7 @@ Resolve and lock compatible dependency versions during implementation; pin the d
 
 Alternatives considered: SQLite is simpler but does not fulfil the Docker database objective as well; a full Airflow/MLflow platform adds operational work before there is a reliable dataset. A Python CLI with PostgreSQL is the recommended starting point.
 
-Local checks: Docker CLI 29.7.2 and Compose v5.4.0 are installed; Python reports 3.11.2; uv is not on PATH. These checks do not establish that the Docker daemon is running. Provision the proposed project runtime independently of system Python.
+Initial local checks found Docker CLI 29.7.2, Compose v5.4.0 and system Python 3.11.2. Phase 1 installed uv 0.13.0 and a separate Python 3.12.15 environment, verified the Docker daemon, started PostgreSQL 18.6 and applied migrations. The local runtime uses `python -m uv` because uv is not on the current shell's PATH.
 
 References: [Docker Compose](https://docs.docker.com/compose/), [PostgreSQL documentation](https://www.postgresql.org/docs/current/), [uv documentation](https://docs.astral.sh/uv/).
 
