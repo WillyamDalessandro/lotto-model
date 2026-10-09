@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lotto-model"
+version = "0.1.0"
+description = "Reproducible Irish Lotto research and data ingestion"
+requires-python = ">=3.12,<3.13"
+dependencies = ["sqlalchemy>=2,<3", "psycopg[binary]>=3,<4", "alembic>=1.16,<2", "pydantic-settings>=2,<3", "typer>=0.16,<1"]
+
+[project.optional-dependencies]
+research = ["pandas>=2,<4", "numpy>=2,<3", "scipy>=1.15,<2", "scikit-learn>=1.6,<2", "jupyterlab>=4,<5", "matplotlib>=3.10,<4"]
+
+[project.scripts]
+lotto = "lotto_model.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.12,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

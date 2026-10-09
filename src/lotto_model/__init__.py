@@ -1,0 +1,1 @@
+"""Irish Lotto research infrastructure."""
