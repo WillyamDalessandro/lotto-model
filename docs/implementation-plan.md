@@ -21,7 +21,7 @@ Source files:
 - irish_lotto_game_rules.csv: effective rule intervals and eligible number pool.
 - irish_lotto_calendar_5_years.csv: date and scheduled draw metadata.
 
-Current coverage: 527 draws, 9 October 2021–7 October 2026; 512 under 6/47 and 15 under 6/45. Recount and verify the current files when implementation begins. Results were primarily collected from independent historical archives; verify operator sources where available and retain provenance and discrepancies.
+Coverage is not assumed. The previously described external 527-draw snapshot (512 under 6/47, 15 under 6/45) is absent and does not set any sample size. Exact eligible counts, dates and indices come only from a verified Phase 3 snapshot and the frozen `protocol.json` written by `lotto research protocol` (see [baselines](baselines.md)). Results were primarily collected from independent historical archives; verify operator sources where available and retain provenance and discrepancies.
 
 Prize files are used for optional retrospective prize-value summaries, not as future-draw targets or predictors containing post-draw information. Do not infer ticket-level return on investment or ticket sales from draw-level payouts.
 
@@ -29,9 +29,9 @@ Canonical grain: one draw per date. Target main numbers form an unordered set. V
 
 ## 3. Rule regimes and evaluation boundaries
 
-Run the initial historical experiment only within the 512-draw 6/47 regime. Do not mix it silently with 6/45. Define lag and target pairs within the same regime so the final 6/47 observation does not acquire a 6/45 target.
+Run the initial historical experiment only within the verified 6/47 regime, and only if its frozen protocol reaches the 282-draw minimum. Do not mix it silently with 6/45. Define lag and target pairs within the same regime so the final 6/47 observation does not acquire a 6/45 target.
 
-The 15 6/45 draws are insufficient for a reliable trained-model evaluation. Show this regime as insufficient evidence. Collect subsequent draws for prospective testing. Any future transfer model must be explicitly assessed for changed eligibility, schedule and distribution rather than treated as a validated deployment of the 6/47 model.
+The small 6/45 sample is insufficient for a reliable trained-model evaluation. Show this regime as insufficient evidence. Collect subsequent draws for prospective testing. Any future transfer model must be explicitly assessed for changed eligibility, schedule and distribution rather than treated as a validated deployment of the 6/47 model.
 
 The initial experiment is a historical study, not a recommendation for current 6/45 tickets. Ineligible numbers 46 and 47 must never appear in a current-regime output.
 

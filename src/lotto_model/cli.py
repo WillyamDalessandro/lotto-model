@@ -8,12 +8,14 @@ from lotto_model.config import Settings
 from lotto_model.db import create_engine_from_settings
 from lotto_model.ingestion.commands import app as data_app
 from lotto_model.migrate import upgrade_database
+from lotto_model.research.commands import app as research_app
 
 app = typer.Typer(help="Irish Lotto research tools.")
 db = typer.Typer(help="Database operations.")
 app.add_typer(db, name="db")
 app.add_typer(data_app, name="data")
 app.add_typer(audit_app, name="audit")
+app.add_typer(research_app, name="research")
 
 
 @db.command()

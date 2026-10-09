@@ -241,3 +241,64 @@ def audit_factory():
         inputs = staticmethod(build_inputs)
 
     return Factory
+
+
+def research_dates(n, start=date(2020, 1, 6)):
+    """Monday/Wednesday draw dates from a Monday."""
+    from datetime import timedelta
+
+    days, day = [], start
+    while len(days) < n:
+        if day.weekday() in (0, 2):
+            days.append(day)
+        day += timedelta(days=1)
+    return days
+
+
+def research_mains(n, seed=7, pool=47):
+    import numpy as np
+
+    rng = np.random.Generator(np.random.PCG64(seed))
+    return [
+        tuple(sorted(int(x) + 1 for x in rng.choice(pool, 6, replace=False)))
+        for _ in range(n)
+    ]
+
+
+@pytest.fixture
+def research_draws():
+    from lotto_model.research.contracts import ResearchDraw
+
+    def build(n, seed=7):
+        return [
+            ResearchDraw(draw_date=d, rule_code="6/47", pool=47, mains=m)
+            for d, m in zip(research_dates(n), research_mains(n, seed))
+        ]
+
+    return build
+
+
+@pytest.fixture
+def synthetic_snapshot(tmp_path):
+    """Publish a verified synthetic bundle with n Monday/Wednesday draws."""
+    from lotto_model.audit.bundle import build_content, build_manifest
+    from lotto_model.audit.contracts import AuditRequest
+    from lotto_model.audit.eligibility import audit_inputs
+    from lotto_model.audit.registry import publish_bundle
+
+    def build(n, seed=7, drop=()):
+        days = research_dates(n + len(drop))
+        mains = research_mains(n + len(drop), seed)
+        draws = [
+            make_draw(d, mains=m, bonus=None)
+            for i, (d, m) in enumerate(zip(days, mains))
+            if i not in drop
+        ]
+        request = AuditRequest(start=days[0], end=days[-1])
+        rule = make_rule(starts_on=date(2019, 1, 1))
+        audit = audit_inputs(build_inputs(draws, rules=[rule]), request)
+        files = build_content(audit, request)
+        manifest = build_manifest(files, request, len(draws), "test")
+        return publish_bundle(files, manifest, tmp_path / "snapshots", len(draws))
+
+    return build
