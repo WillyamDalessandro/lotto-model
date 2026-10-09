@@ -111,7 +111,8 @@ Recommendation: progress through acquisition, audit/freeze, AI model/data/method
 3. Implement only the approved scope, with meaningful unit and database integration checks.
 4. Run application/runtime checks and the full relevant suite: `python -m uv run ruff check .`, `python -m uv run ruff format --check .`, `python -m uv run pytest -q`, and `git diff --check`. Start the isolated test database as documented in `docs/local-development.md`.
 5. Merge with local `main`, then repeat runtime checks and tests on the merged state.
-6. Push only after those checks succeed. Preserve evidence and data outside Git according to existing repository policy.
+6. Once a phase is complete and verified (all checks pass on the feature branch and again on merged local `main`), push `main` and the phase branch to `origin` straight away, without waiting for a further request. Never push failing or unverified work. Never push data, evidence, snapshots, experiment outputs or `.env`; they stay outside Git under the existing repository policy.
+7. Record the phase's decisions in `docs/implementation-decisions.md` and update the README status in the same push.
 
 ## Phase design and implementation documents
 
