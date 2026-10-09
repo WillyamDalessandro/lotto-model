@@ -26,3 +26,5 @@ The initial historical experiment uses the 6/47 regime. The small 6/45 sample is
 ## Data provenance
 
 Read [data collection and preparation](docs/data-collection.md) for the sources, retrieval and recovery workflow, table structure, enrichment, validation and reproducibility limitations.
+
+The proposed [complementary data catalogue](docs/complementary-data.md) specifies jackpot and rollover context, prizes, rules/prices, calendar, public ticket metadata, official aggregates and dataset-level coverage for phase 2.

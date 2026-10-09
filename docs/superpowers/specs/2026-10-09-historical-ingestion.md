@@ -4,7 +4,13 @@ Date: 9 October 2026. Status: proposed for review. No bulk collection or ingesti
 
 ## Goal
 
-Gather the longest accessible public Irish main Lotto history, preserve reproducible source evidence, and incrementally ingest validated draws into the existing local PostgreSQL database. Preserve incomplete older history as observations rather than inventing missing values. Training and a frozen research dataset belong to later phases.
+Gather the longest accessible public Irish main Lotto history and complementary lottery context, preserve reproducible source evidence, and incrementally ingest validated draws into the existing local PostgreSQL database. Preserve incomplete older history as observations rather than inventing missing values. Training and a frozen research dataset belong to later phases.
+
+## Complementary data scope
+
+The [complementary data catalogue](../../complementary-data.md) is part of this spec. Required context includes published prize breakdowns, jackpot pools/outcomes, evidence-backed rules/prices and full calendar/schedule exceptions. Add chronological rollover context, prize-value summaries and descriptive number features as derived outputs with lineage. Public winning-ticket locations/channels and official period-level sales/prize/participation metrics are best-effort source acquisitions; report availability instead of inventing missing observations. Holidays are a proposed optional extension pending scope selection. External weather/economic datasets are not yet approved scope.
+
+Use separate relations for ticket reports, effective rule attributes, calendar events and official period metrics. Capture source publication time separately from retrieval and effective dates. Preserve every original currency, prize type and location meaning. Do not confuse post-draw context with pre-draw predictors or annual aggregates with per-draw values.
 
 ## Source probe
 
@@ -39,7 +45,7 @@ Commands:
 
 - `lotto data discover`: inspect source availability, annual links and access-policy status without bulk collection.
 - `lotto data collect --start-year 1988 --end-year 2026`: fetch allowed annual archives, persist parsed observations and ingest eligible records; checkpoint per URL.
-- `lotto data enrich --start DATE --end DATE`: fetch missing prize/detail evidence for known dates with resumable limits.
+- `lotto data enrich --start DATE --end DATE`: fetch missing prize/detail evidence for known dates with resumable limits. Dataset selection additionally supports rules, public ticket stories and official reports; scope and period are explicit per dataset.
 - `lotto data import MANIFEST`: import saved source evidence offline, verify hashes, validate source identity and parse with the selected adapter.
 - `lotto data report`: emit JSON coverage and discrepancy summaries, including accepted versus staged records.
 
@@ -59,7 +65,7 @@ Parse main Lotto separately from Plus games, advertisements and aggregate totals
 
 Convert grouped integers and monetary decimals explicitly; retain original prize text and currency. Dashes and absent cells mean unknown, never zero. Preserve historical pound values with an explicit currency label whose interpretation is documented; do not write them into prize_eur or assume an exchange rate. Missing prizes or winners do not reject otherwise valid numbers.
 
-Extend storage with draw_context, quality_issues, fetch_checkpoints and a portable retrieval-manifest mapping. Add typed observation contracts that allow missing bonuses and unknown regimes without weakening the existing modern DrawInput. Keep such records staged until their applicable rules and required fields are known. Phase 2 must report this older coverage, even when it cannot yet accept those records into the modern model population.
+Extend storage with draw_context, quality_issues, fetch_checkpoints and a portable retrieval-manifest mapping, plus rule_attributes, calendar_dates/events, winning_ticket_reports and official_period_metrics as defined in the catalogue. Add typed observation contracts that allow missing bonuses and unknown regimes without weakening the existing modern DrawInput. Keep such records staged until their applicable rules and required fields are known. Phase 2 must report this older coverage, even when it cannot yet accept those records into the modern model population.
 
 ## Rules and canonical transaction
 
@@ -77,10 +83,10 @@ Same numbers and bonus: keep corroborating source references and fill only previ
 
 Report source observations and accepted draws separately by year, game and verified regime, with first/last dates, duplicates, missing bonus/prizes, conflicts, blocked URLs and unverified rules. Expected-date counts use verified schedules plus documented exceptions only. Unknown-rule years have unknown expected coverage, not zero missing draws. Never present source link counts as proof of completeness.
 
-Phase 2 is complete when the pipeline is reproducible, live acquisition has produced a measured dataset, repeated ingestion leaves canonical counts unchanged, cached imports rebuild the same records in an isolated database, conflicts and invalid responses are tested, and all actual coverage/gaps are documented. If access prevents complete history, deliver the functioning pipeline and explicitly report the limit; do not claim full collection.
+Phase 2 is complete when the pipeline is reproducible, live acquisition has produced a measured dataset including the required complementary context, repeated ingestion leaves canonical counts unchanged, cached imports rebuild the same records in an isolated database, conflicts and invalid responses are tested, and all actual coverage/gaps are documented. Include a coverage row for every complementary dataset, even when empty or unavailable. If access prevents complete history, deliver the functioning pipeline and explicitly report the limit; do not claim full collection.
 
 ## Validation and delivery
 
-Tests use small saved fixtures representative of annual/detail/operator pages, early missing-bonus results, mixed currencies, unknown winners and malformed/blocked HTML. HTTP retry/pacing tests use a local stub, not live websites. PostgreSQL integration tests cover atomicity, idempotence, rule boundaries, correction evidence, quarantine, enrichment conflicts and offline reconstruction. Test-only synthetic fixtures never enter the research DB.
+Tests use small saved fixtures representative of annual/detail/operator pages, early missing-bonus results, mixed currencies, unknown winners and malformed/blocked HTML. Include shared jackpots, missing prize tiers, mixed cash/ticket semantics, rollover gaps, overlapping ticket stories and annual metrics whose scope differs from main Lotto. HTTP retry/pacing tests use a local stub, not live websites. PostgreSQL integration tests cover atomicity, idempotence, rule boundaries, correction evidence, quarantine, enrichment conflicts and offline reconstruction. Test-only synthetic fixtures never enter the research DB.
 
 Run a bounded live probe/import followed by the resumable historical backfill, report actual counts and hashes, and back up acquired evidence/database. Run runtime commands and the entire suite before local main merge; repeat runtime and tests after merge, then push according to project instructions. Local data and credentials remain ignored. No model, betting action or private player information is part of this phase.
