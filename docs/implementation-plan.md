@@ -1,6 +1,7 @@
 # Irish Lotto number model — implementation plan
 
 Status: proposed experiment, not trained.
+Repository note (9 October 2026): the referenced datasets and dashboard are absent from this checkout. Treat counts below as a description of an external snapshot until verified. The [project foundation](project-foundation.md) governs infrastructure, ingestion and phased delivery; confirm dataset coverage and update this experiment protocol after ingestion. Prior publication language below is historical context, not current project authorisation.
 Scope: main Lotto only. Predict six distinct main numbers before each draw. Primary objective: at least 3 main matches. Secondary objective: at least 5 main matches. Bonus matches and jackpot optimisation are outside the first version.
 
 ## 1. Research question and success criteria

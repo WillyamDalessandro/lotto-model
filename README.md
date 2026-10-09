@@ -9,13 +9,17 @@ Research project evaluating whether historical Irish Lotto draws support an out-
 - Secondary evaluation: at least 5 main matches and portfolios of 5 or 10 lines, compared at identical budgets.
 - Main Lotto only; bonus matches and jackpot optimisation are outside the initial scope.
 
+## Project phases and stack
+
+Read [the project foundation](docs/project-foundation.md) for the repository audit, proposed Python/PostgreSQL/Docker stack, data contracts and phased roadmap. Start with infrastructure and verifiable ingestion before modelling.
+
 ## Implementation plan
 
 Read [the implementation plan](docs/implementation-plan.md) for data contracts, leakage controls, chronological validation, baselines, candidate models, uncertainty and delivery stages.
 
 ## Status
 
-Planning complete. No model has been trained or validated yet.
+Foundation design proposed for review. This repository currently contains documentation only; the previously described data exports and collection scripts are not committed here. No database, ingestion pipeline or model has been implemented or validated.
 
 The initial historical experiment uses the 6/47 regime. The small 6/45 sample is not sufficient for reliable evaluation. Historical prize-sharing correlations are not evidence that winning numbers can be predicted. A result showing no advantage over random selection is a valid outcome.
 
