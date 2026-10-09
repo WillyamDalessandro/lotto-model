@@ -133,3 +133,43 @@ The opening coverage figures describe the earlier planning snapshot. Consult `do
 Recommend preparing the Phase 3 audit/snapshot spec next while Phase 2 acquisition remains the execution dependency. Its contracts and synthetic validation can be designed now, but actual dataset freezing and modelling remain gated on accepted source data.
 
 Decide whether the immediate priority is recovering/obtaining permitted historical inputs or designing the audit/snapshot subsystem. Exact model split sizes, a reporting interface and spending limits are deliberately not set without the required data or user requirements.
+
+## Phase 7 — full backfill, model search and five-year evaluation
+
+Requested 9 October 2026, to start after Phases 2–6 software is complete (see `docs/implementation-decisions.md`). This phase turns the verified tooling into an actual study.
+
+**Outcome:** a complete, verified historical dataset; a documented comparison of several machine-learning models and prediction methods; and a report explaining how each performed on the draws of the last five years, targeting three or more main-number matches (not jackpots).
+
+### 7.1 Verify, backfill and enrich the data
+
+- Verify all existing data, then backfill the full main-Lotto history (dates, six mains, bonus, prizes, jackpot/outcome, rule regimes and schedules). Use only permitted sources: exports or permissions obtained from publishers, operator data provided for this use, or data the user supplies. Sites whose terms prohibit harvesting stay excluded (see `docs/phase2-coverage.md`).
+- Add correlated context only where it is known before the draw and could plausibly inform the study. Examples: rule/pool changes, draw schedule and calendar events, prior jackpot size and rollover streak, ticket-sales or official aggregate metrics, and machine/ball-set identifiers if the operator publishes them. Record each source's provenance, timing and permission.
+- Import through `lotto data batch`, then audit and freeze with `lotto audit snapshot`. Report coverage by year, regime and field, and list remaining gaps explicitly.
+
+### 7.2 Prepare the training dataset
+
+- Build the training table from the verified snapshot only: per-draw, per-number features computed from earlier draws, with regime boundaries and missing-draw gaps respected.
+- Define the evaluation window as the last five years of eligible draws. Earlier history is used for training and development. Keep one regime per model, or add an explicit transfer step for regime changes (6/47 → 6/45).
+
+### 7.3 Automated model and parameter search (leakage-safe)
+
+- Tune parameters automatically, but only with chronological (walk-forward) validation inside the training/development period. Use a predeclared search budget (for example Bayesian or grid search with a fixed number of trials) and pick the best setting by log loss and 3-plus match rate on validation folds.
+- The five-year evaluation draws are never used to choose parameters. Tuning "until predictions look good" on the same draws being reported would only memorise noise and give a falsely optimistic result. Each evaluated draw is predicted by a model trained only on earlier draws, with refits on a fixed schedule.
+- Candidate model families: uniform random and frequency baselines; regularised logistic regression; gradient boosting (histogram GBM, and XGBoost/LightGBM if added to the lock file); random forest; simple neural networks (MLP). Sequence models (LSTM/transformer) run only as a clearly labelled experiment, because the Phase 4A research found no supporting evidence and a high overfitting risk at this sample size.
+
+### 7.4 Prediction methods compared
+
+- Top-six marginal probabilities (current primary policy).
+- Probability-weighted sampling.
+- Coverage-optimised portfolios of 5 and 10 lines (maximising distinct-number coverage).
+- Frequency/recency heuristics ("hot", "cold" and "overdue" numbers) as explicit comparators.
+- Each method's predictions, seeds, configuration and evaluation outcomes are saved immutably in the experiment ledger and exported (`prediction_log.csv`, `evaluation_results.csv`).
+
+### 7.5 Reporting
+
+- Update the report with, per model and method: the 3-plus hit rate over the five-year window against the exact random rate (about 1 in 47.6 under 6/47 and 1 in 42.0 under 6/45), confidence intervals, null-simulation p-values corrected for the number of models and methods tried, calibration, and stability by year.
+- Name the best-performing model and method. State plainly whether its advantage over random selection is statistically distinguishable, given the power limits in `docs/ai-model-research.md`. If no model beats random, report that as the finding.
+
+**Gate:** every result traces to a verified snapshot and frozen configuration. Tuning never touches the evaluation draws. Comparisons use identical draws and line budgets. Multiple-comparison correction covers every model and method tested.
+
+**Dependency:** permitted full-history data (7.1). Without it, 7.2–7.5 can only run on synthetic data to verify the software.
