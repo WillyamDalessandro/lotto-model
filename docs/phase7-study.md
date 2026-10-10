@@ -136,3 +136,33 @@ manifests on rerun), exact null rates and coverage portfolios for every pool.
 - Prize breakdowns are now backfilled (snapshot `58810b97…`). They matter for
   cost and return analysis, not for number prediction. The draws are
   unchanged, so these results stand.
+
+## Does the prize or jackpot matter? (6/47, 1,148 draws)
+
+**Jackpot size does not affect which numbers are drawn.**
+
+| Test | Result |
+|---|---|
+| Jackpot size vs sum of the numbers drawn | Spearman -0.03, p = 0.37 |
+| Jackpot size vs how many numbers drawn are 31 or under | Spearman 0.00, p = 0.89 |
+| Number frequencies, high-jackpot vs low-jackpot draws | chi-square p = 0.60 |
+
+**The numbers drawn strongly affect how much each winner is paid.** Many
+players choose dates (1 to 31), so when the draw contains many of those
+numbers, more people win and each share is smaller.
+
+| Tier | More numbers of 31 or under drawn means |
+|---|---|
+| Match 3 | lower prize (Spearman -0.84) |
+| Match 4 | lower prize (Spearman -0.81) and more winners (+0.47) |
+| Match 5 | lower prize (Spearman -0.51) and more winners (+0.42) |
+
+| Numbers drawn that are 31 or under | 0–1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| Median Match 4 prize | about €62–64 | €62 | €60 | €54 | €45 | €35 |
+
+Choosing numbers above 31 does not change the odds of matching. It does
+raise the expected payout when a line wins, because fewer people share the
+prize. This is the only lever the data supports. It is about value per win,
+not about predicting numbers. Ticket price is not stored in the snapshot
+and cannot affect a mechanical draw.
