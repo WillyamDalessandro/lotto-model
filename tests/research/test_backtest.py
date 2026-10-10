@@ -93,3 +93,14 @@ def test_simulation_reconciles_with_exact_odds(setup):
     )
     again = simulate_baselines(protocol, draws, simulations=200, budgets=(1, 5))
     assert again == result
+
+
+def test_parallel_simulation_equals_sequential(research_draws):
+    from lotto_model.research.protocol import build_protocol
+    from lotto_model.research.simulation import simulate_baselines
+
+    draws = research_draws(300)
+    protocol = build_protocol(draws, "a" * 64)
+    sequential = simulate_baselines(protocol, draws, 120, (1, 5), workers=1)
+    parallel = simulate_baselines(protocol, draws, 120, (1, 5), workers=3)
+    assert parallel == sequential

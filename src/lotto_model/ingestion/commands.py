@@ -173,9 +173,12 @@ def collect(
     end_year: int | None = None,
     max_requests: int = 100,
     root: Path = Path("data/raw"),
+    prizes: bool = typer.Option(
+        False, help="Also fetch every draw's prize page (slow: one per draw)."
+    ),
 ):
     """Backfill the full draw history from reviewed permitted sources."""
-    from lotto_model.ingestion.backfill import backfill
+    from lotto_model.ingestion.backfill import backfill, backfill_prizes
 
     current = date.today().year
     if not 1988 <= start_year <= (end_year or current) <= current or max_requests < 1:
@@ -183,6 +186,10 @@ def collect(
     engine = create_engine_from_settings(Settings())
     try:
         result = backfill(engine, root, start_year, end_year, max_requests=max_requests)
+        if prizes:
+            result["prizes"] = backfill_prizes(
+                engine, root, start_year, end_year, max_requests=max_requests
+            )
         typer.echo(json.dumps(result))
     finally:
         engine.dispose()

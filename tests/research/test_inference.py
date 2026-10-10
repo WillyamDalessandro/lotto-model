@@ -73,6 +73,14 @@ def test_null_resume_equals_uninterrupted(research_draws, tmp_path):
     assert null_statistic(FROZEN, protocol, draws, 0) == clean["statistics"][0]
 
 
+def test_parallel_nulls_equal_sequential(research_draws, tmp_path):
+    draws = research_draws(282)
+    protocol = build_protocol(draws, "a" * 64)
+    sequential = run_null_replicates(FROZEN, protocol, draws, 3, tmp_path / "s")
+    parallel = run_null_replicates(FROZEN, protocol, draws, 3, tmp_path / "p", 2)
+    assert parallel == sequential
+
+
 def test_predict_next(research_draws):
     draws = research_draws(200)
     frozen = FROZEN | dict(

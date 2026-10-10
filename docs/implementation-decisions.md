@@ -166,3 +166,46 @@ be used instead of the 282-draw minimum.
     line hits 3+ with probability 2.1%. Ten coverage lines reach only about
     19%. Reaching 40% needs about 25 or more lines per draw, which is spending,
     not prediction. The study reports what each method actually achieves.
+33. **Prize breakdowns come from lotto.net per-draw pages.** Only the first
+    table under "Prize Breakdown" is read; that is the main Lotto draw. The
+    Lotto Plus tables that follow are ignored. The numbers on each page are
+    reconciled with the accepted draw, and a disagreement would quarantine
+    it. Pre-2002 amounts stay unassigned (ruling 27). The "-" cells on old
+    pages are unknown values, never zero. The crawl delay is 3 seconds:
+    robots.txt sets none, and that is about one request every 3 seconds for a
+    one-off backfill.
+34. **Phase 5 runs on snapshot `a3ea572d…`, the same draws Phase 7 used.** The
+    six candidates and the selection rule were fixed in Phase 4, and selection
+    uses development folds only, so no tuning reaches the 230-draw holdout.
+    The holdout is no longer unseen by the analyst, however: the Phase 7
+    five-year window contains it. Phase 6 prospective records are therefore
+    the only clean confirmation.
+35. **Phase 6 starts with one uniform arm.** Its deadline is 19:45
+    Europe/Dublin, from the saved Wikipedia body ("Ticket sales for Lotto close
+    at 7:45 p.m. local time on draw nights"). It started on 12 October 2026
+    under 6/45-2026 (Monday, Wednesday and Saturday draws). No model arm runs:
+    there are 15 draws of the current game, the trained models are for 6/47,
+    and Phase 7 found no model better than chance. No deadline overrides were
+    set; holiday changes need reviewed evidence. Results arrive through
+    `lotto data collect`.
+36. **Baseline simulations and null replicates run in parallel.** Each
+    simulation and each null replicate draws from its own seed, derived from
+    its index, so splitting the work across processes leaves every number
+    unchanged. Tests check that parallel and sequential runs give equal
+    results. Without this, 10,000 baseline simulations (about 4.7 hours) and
+    10,000 null refits would not finish in a working session.
+37. **Phase 5 inference stops at 100 null refits.** Each refit repeats the
+    230-draw holdout training, and takes about 1.5 minutes even in parallel.
+    The 10,000 refits the protocol needs for a final verdict would take about
+    10 days. The report therefore stays "Not final". The exact uniform
+    comparison and the Clopper-Pearson interval do not depend on the refits,
+    and they already show no demonstrated advantage. More refits can be
+    resumed later with `lotto research nulls --count 10000 --workers N`.
+38. **Reconstruction is judged on values, not digests.** A snapshot digest
+    covers provenance: evidence hashes, observation keys and counts of
+    staged, undated records. A rebuild that refetches the current year's
+    page therefore always gets a new digest, even when no value has
+    changed. Phase 2 reproducibility is accepted because the draws, rules,
+    prize tiers and context are identical once those provenance fields are
+    removed. Past-year pages are cached, so their provenance is identical
+    too.

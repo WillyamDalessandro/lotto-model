@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from lotto_model.ingestion.parsers import ParseError, parse_lottonet_year
+from lotto_model.ingestion.parsers import (
+    ParseError,
+    parse_lottonet_detail,
+    parse_lottonet_year,
+)
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "ingestion" / "lottonet-2015.html"
 URL = "https://www.lotto.net/irish-lotto/results/2015"
@@ -62,3 +66,40 @@ def test_fixed_jackpot_second_draw_on_same_date_is_skipped():
     assert [r.mains[0] for r in rows] == [1, 2]
     with pytest.raises(ParseError, match="Duplicate"):
         parse_lottonet_year(body[:end] + block + body[end:], URL)
+
+
+DRAW = (
+    Path(__file__).parents[1]
+    / "fixtures"
+    / "ingestion"
+    / "lottonet-draw-2015-09-05.html"
+)
+DRAW_URL = "https://www.lotto.net/irish-lotto/results/september-05-2015"
+
+
+def test_draw_page_parses_main_prize_table_only():
+    observation = parse_lottonet_detail(DRAW.read_bytes(), DRAW_URL)
+    assert observation.draw_date == date(2015, 9, 5)
+    assert observation.mains == (2, 11, 20, 33, 46, 47) and observation.bonus == 5
+    tiers = {p.tier: p for p in observation.prizes}
+    assert len(tiers) == 8
+    assert tiers["Match 6"].winners == 0
+    assert tiers["Match 3"].winners == 9000
+    assert tiers["Match 2 + Bonus"].prize_type == "ticket_or_cash"
+    assert tiers["Match 5"].amount == Decimal("1000")
+
+
+def test_draw_page_rejects_mismatched_address_and_missing_table():
+    with pytest.raises(ParseError):
+        parse_lottonet_detail(DRAW.read_bytes(), DRAW_URL.replace("05", "06", 1))
+    with pytest.raises(ParseError):
+        parse_lottonet_detail(
+            DRAW.read_bytes().replace(b"<h2>Prize Breakdown</h2>", b"<h2>Other</h2>"),
+            DRAW_URL,
+        )
+
+
+def test_pre_euro_prize_amounts_are_unassigned():
+    body = DRAW.read_bytes().replace(b"2015", b"1995").replace(b"Saturday", b"Tuesday")
+    observation = parse_lottonet_detail(body, DRAW_URL.replace("2015", "1995"))
+    assert all(p.amount is None and p.currency is None for p in observation.prizes)

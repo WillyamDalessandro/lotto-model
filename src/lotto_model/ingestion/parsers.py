@@ -284,3 +284,84 @@ def parse_lottonet_year(body: bytes, url: str) -> list[Observation]:
     if not output:
         raise ParseError("No draws in archive page")
     return [output[d] for d in sorted(output)]
+
+
+LOTTONET_DETAIL = re.compile(r"/irish-lotto/results/([a-z]+)-(\d{2})-(\d{4})")
+LOTTONET_TITLE = re.compile(
+    r"Irish Lotto Results for [A-Z][a-z]+ "
+    r"(\d{1,2})(?:st|nd|rd|th) ([A-Z][a-z]+) (\d{4})"
+)
+
+
+def _lottonet_prizes(table, draw_date):
+    rows = table.select("tr")
+    header = [c.get_text(" ", strip=True) for c in rows[0].select("th,td")]
+    if not header or header[0] != "Prize Level":
+        raise ParseError("Unexpected prize table header")
+    output = []
+    for row in rows[1:]:
+        cells = [c.get_text(" ", strip=True) for c in row.select("td")]
+        if not cells or cells[0] == "Totals":
+            continue
+        if len(cells) < 3 or not cells[0].startswith("Match"):
+            raise ParseError("Unexpected prize row")
+        # The jackpot row prefixes its winner count with a "Rollover!" flag.
+        published = cells[1]
+        winners = cells[2].removeprefix("Rollover!").strip().replace(",", "")
+        amount, currency = money(published)
+        if draw_date < EURO_START:
+            amount, currency = None, None
+        output.append(
+            PrizeObservation(
+                tier=tier(cells[0]),
+                winners=int(winners) if winners.isdigit() else None,
+                amount=amount if published != "-" else None,
+                currency=currency if published != "-" else None,
+                original_text=published,
+                prize_type="ticket_or_cash"
+                if re.search(r"Quick Pick|ticket|Scratch Card", published, re.I)
+                else "unresolved",
+            )
+        )
+    if not output:
+        raise ParseError("Empty prize table")
+    return output
+
+
+def parse_lottonet_detail(body: bytes, url: str) -> Observation:
+    """One lotto.net draw page: main Lotto numbers and its prize table only."""
+    path = LOTTONET_DETAIL.fullmatch(urlparse(url).path)
+    if not path:
+        raise ParseError("Unsupported lotto.net draw path")
+    soup = soup_for(body)
+    try:
+        titled = LOTTONET_TITLE.fullmatch(soup.title.get_text(strip=True))
+        draw_date = datetime.strptime(" ".join(titled.groups()), "%d %B %Y").date()
+        if draw_date != datetime.strptime(" ".join(path.groups()), "%B %d %Y").date():
+            raise ParseError("Draw page title disagrees with its address")
+        balls = soup.select_one("ul.balls").select("li")
+        mains = [
+            int(b.get_text(strip=True))
+            for b in balls
+            if "bonus-ball" not in b.get("class", [])
+        ]
+        bonus = [
+            int(b.select_one("span").get_text(strip=True))
+            for b in balls
+            if "bonus-ball" in b.get("class", [])
+        ]
+        table = soup.select_one("table")
+        heading = table.find_previous(["h1", "h2", "h3", "h4"])
+        if heading.get_text(strip=True) != "Prize Breakdown":
+            raise ParseError("First prize table is not the main Lotto draw")
+        return Observation(
+            draw_date=draw_date,
+            mains=mains,
+            bonus=bonus[0] if len(bonus) == 1 else None,
+            source_url=url,
+            prizes=_lottonet_prizes(table, draw_date),
+        )
+    except ParseError:
+        raise
+    except (AttributeError, ValueError, ValidationError) as exc:
+        raise ParseError("Unexpected lotto.net draw page structure") from exc

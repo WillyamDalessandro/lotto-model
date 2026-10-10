@@ -68,9 +68,33 @@ observation may supply it; a contradicting bonus is a number conflict. Missing
 prizes and jackpots remain absent/null. Undated observations never become draws;
 draws outside a verified rule interval stay `staged`.
 
-## Remaining real-data inputs
+## Completion assessment (10 October 2026)
 
-1. A permitted dated main-Lotto export (with provenance and permission record).
-2. Dated rule/schedule evidence for every regime covered by that export.
-3. Prize breakdowns and jackpot/outcome context, or an explicit statement that
-   they are unavailable.
+Phase 2 is complete. The earlier inputs are satisfied as follows.
+
+1. **Dated draws:** `lotto data collect` backfills all 3,909 draws from 1988
+   to 2026 from lotto.net, a permitted source (ruling 23).
+2. **Rule evidence:** dated evidence covers all seven rule regimes. It comes
+   from Wikipedia and the 2015 trade announcement, bound in
+   `data/reviews/rule-bindings.json`.
+3. **Prize breakdowns:** 26,177 tiers cover every draw (ruling 33). Jackpot
+   amounts exist for 2,589 euro-era draws. Values the source does not publish
+   stay null.
+
+Checks run on the real data:
+
+- **Replay:** running `lotto data collect --prizes` again from the cache
+  corroborated every observation and added nothing.
+- **Isolated reconstruction:** a new `lotto_rebuild_test` database was
+  migrated, then filled by `lotto data collect --prizes` and `lotto data
+  enrich` from a copy of the evidence cache.
+  - Its snapshot (`3b98467a…`) has the same draws, rules, prize tiers and
+    jackpot context values as the research snapshot `58810b97…`.
+  - The digests differ for two provenance reasons only:
+    - The current-year archive page (85 draws of 2026) was refetched, so its
+      body hash and observation keys changed.
+    - The 264 undated journal combinations come from a separate offline
+      import that the rebuild did not repeat.
+  - Ruling 38 explains why this counts as reproducible.
+- **Backup and restore:** a `pg_dump -Fc` was restored into
+  `lotto_restore_20261010_test`. All 26 table row counts are identical.

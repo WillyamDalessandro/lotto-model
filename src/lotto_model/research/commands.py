@@ -156,7 +156,12 @@ def holdout(frozen_dir: Path, snapshot: Path = typer.Option(...)):
 
 @app.command()
 @safe_command
-def nulls(frozen_dir: Path, snapshot: Path = typer.Option(...), count: int = 10_000):
+def nulls(
+    frozen_dir: Path,
+    snapshot: Path = typer.Option(...),
+    count: int = 10_000,
+    workers: int = typer.Option(1, help="Parallel processes; results are identical."),
+):
     """Checkpointed null-history refits of the frozen pipeline (resumable)."""
     from lotto_model.research.experiment import load_frozen
     from lotto_model.research.inference import run_null_replicates
@@ -165,7 +170,12 @@ def nulls(frozen_dir: Path, snapshot: Path = typer.Option(...), count: int = 10_
     frozen, _, protocol = load_frozen(frozen_dir)
     draws = verified_population(protocol, snapshot)
     result = run_null_replicates(
-        frozen, protocol, draws, count, Path(frozen_dir) / "holdout" / "nulls"
+        frozen,
+        protocol,
+        draws,
+        count,
+        Path(frozen_dir) / "holdout" / "nulls",
+        workers,
     )
     typer.echo(json.dumps(dict(count=result["count"], final=result["final"])))
 

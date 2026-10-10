@@ -1,5 +1,7 @@
 """Seeded random-portfolio null simulations on development targets only."""
 
+import os
+from concurrent.futures import ProcessPoolExecutor
 from math import sqrt
 
 import numpy as np
@@ -17,11 +19,51 @@ def tolerance(p: float, trials: int) -> float:
     return 5 * sqrt(p * (1 - p) / trials) + 1 / trials
 
 
+def _simulation_range(key, outcomes, start: int, stop: int):
+    """Hit counts for simulations start..stop-1; each seed is independent."""
+    digest, root_seed, pool, budget, dates = key
+    hits3 = np.zeros(stop - start, dtype=np.int64)
+    hits5 = np.zeros(stop - start, dtype=np.int64)
+    for s in range(start, stop):
+        for draw_date, outcome in zip(dates, outcomes):
+            seed = derive_seed(digest, POLICY, draw_date, budget, s, root_seed)
+            best = max(
+                len(outcome.intersection(line))
+                for line in uniform_portfolio(pool, budget, seed)
+            )
+            hits3[s - start] += best >= 3
+            hits5[s - start] += best >= 5
+    return hits3, hits5
+
+
+def _simulate(key, outcomes, simulations: int, workers: int | None):
+    """Split simulations across processes; results equal a sequential run."""
+    workers = workers or min(os.cpu_count() or 1, 8)
+    if workers <= 1 or simulations < 100:
+        return _simulation_range(key, outcomes, 0, simulations)
+    edges = np.linspace(0, simulations, workers + 1).astype(int)
+    with ProcessPoolExecutor(workers) as pool:
+        parts = list(
+            pool.map(
+                _simulation_range,
+                [key] * workers,
+                [outcomes] * workers,
+                edges[:-1].tolist(),
+                edges[1:].tolist(),
+            )
+        )
+    return (
+        np.concatenate([a for a, _ in parts]),
+        np.concatenate([b for _, b in parts]),
+    )
+
+
 def simulate_baselines(
     protocol: Protocol,
     draws: list[ResearchDraw],
     simulations: int | None = None,
     budgets: tuple[int, ...] | None = None,
+    workers: int | None = None,
 ) -> dict:
     check_population(protocol, draws)
     simulations = protocol.simulations if simulations is None else simulations
@@ -40,25 +82,14 @@ def simulate_baselines(
         exact_line_p5=p5,
         budgets={},
     )
+    dates = [d.draw_date for d in targets]
     for budget in budgets or protocol.budgets:
-        hits3 = np.zeros(simulations, dtype=np.int64)
-        hits5 = np.zeros(simulations, dtype=np.int64)
-        for s in range(simulations):
-            for draw, outcome in zip(targets, outcomes):
-                seed = derive_seed(
-                    protocol.digest,
-                    POLICY,
-                    draw.draw_date,
-                    budget,
-                    s,
-                    protocol.root_seed,
-                )
-                best = max(
-                    len(outcome.intersection(line))
-                    for line in uniform_portfolio(protocol.pool, budget, seed)
-                )
-                hits3[s] += best >= 3
-                hits5[s] += best >= 5
+        hits3, hits5 = _simulate(
+            (protocol.digest, protocol.root_seed, protocol.pool, budget, dates),
+            outcomes,
+            simulations,
+            workers,
+        )
         trials = simulations * len(targets)
         rates = hits3 / len(targets)
         result = dict(

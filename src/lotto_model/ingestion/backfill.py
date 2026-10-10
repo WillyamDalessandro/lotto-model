@@ -8,6 +8,7 @@ the 2015 trade announcement for the 6/47 start date.
 """
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -27,7 +28,7 @@ ANNOUNCEMENT_URL = (
     "https://www.shelflife.ie/national-lottery-debuts-bigger-better-lotto/"
 )
 FIRST_YEAR = 1988
-CRAWL_DELAY = 5
+CRAWL_DELAY = 3
 POLICY = AccessPolicy(
     {
         "www.lotto.net": ["/irish-lotto/results"],
@@ -202,3 +203,64 @@ def write_selection(store, artifacts, directory: Path) -> Path:
         encoding="utf8",
     )
     return manifest
+
+
+DETAIL_LINK = re.compile(rb'href="(/irish-lotto/results/[a-z]+-\d{2}-\d{4})"')
+
+
+def detail_urls(store, years) -> list[str]:
+    """Per-draw prize pages linked from the saved yearly archives, in order."""
+    found = []
+    for artifact in years:
+        for path in DETAIL_LINK.findall(store.read(artifact)):
+            url = "https://www.lotto.net" + path.decode()
+            if url not in found:
+                found.append(url)
+    return found
+
+
+def draw_page(body: bytes) -> bool:
+    return b"Prize Breakdown" in body and b"<table" in body
+
+
+def backfill_prizes(
+    engine,
+    root: Path,
+    start_year: int = FIRST_YEAR,
+    end_year: int | None = None,
+    *,
+    client=None,
+    **options,
+) -> dict:
+    """Fetch every draw's prize page (cached), then import numbers and prizes.
+
+    The yearly archives must have been collected first. Draw numbers on each
+    page are reconciled with the accepted draw; a disagreement quarantines it.
+    """
+    end_year = end_year or date.today().year
+    fetched = EvidenceStore(Path(root) / "backfill")
+    years = [
+        fetched.cached(LOTTONET.format(year=year))
+        for year in range(start_year, end_year + 1)
+    ]
+    if any(a is None for a in years):
+        raise ValueError("Collect the yearly archives before prize pages")
+    owned = client is None
+    client = client or httpx.Client(
+        timeout=30,
+        headers={"User-Agent": "lotto-model-research/0.1 (personal research)"},
+    )
+    pages, failed = [], []
+    try:
+        fetcher = Fetcher(fetched, client=client, policy=POLICY, **options)
+        for url in detail_urls(fetched, years):
+            artifact = fetcher.fetch(url, validator=draw_page)
+            (pages if artifact.status == "valid" else failed).append(artifact)
+    finally:
+        if owned:
+            client.close()
+    selected = Path(root) / "prize-import"
+    selected.mkdir(parents=True, exist_ok=True)
+    manifest = write_selection(fetched, pages, selected)
+    counts = import_manifest(engine, manifest, EvidenceStore(Path(root)), "auto")
+    return dict(pages=len(pages), unavailable=len(failed), observations=counts)

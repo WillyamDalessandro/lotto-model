@@ -1,6 +1,7 @@
 """Frozen Phase 4 inference: exact-null intervals, bootstrap, nulls, Holm."""
 
 import json
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 
@@ -143,16 +144,42 @@ def null_statistic(
     return hits / (end - start)
 
 
+def _null_checkpoint(frozen, protocol, draws, replicate, checkpoint_root: Path):
+    path = checkpoint_root / f"{replicate:05d}.json"
+    value = dict(
+        replicate=replicate,
+        statistic=null_statistic(frozen, protocol, draws, replicate),
+    )
+    temporary = path.with_suffix(".tmp")
+    temporary.write_bytes(canonical_json(value))
+    temporary.replace(path)
+    return value
+
+
 def run_null_replicates(
     frozen: dict,
     protocol: Protocol,
     draws: list[ResearchDraw],
     count: int,
     checkpoint_root: Path,
+    workers: int = 1,
 ) -> dict:
-    """Seed-indexed checkpoints: resumed runs equal uninterrupted ones."""
+    """Seed-indexed checkpoints: resumed or parallel runs equal sequential ones."""
     checkpoint_root = Path(checkpoint_root)
     checkpoint_root.mkdir(parents=True, exist_ok=True)
+    missing = [
+        r for r in range(count) if not (checkpoint_root / f"{r:05d}.json").exists()
+    ]
+    if workers > 1 and len(missing) > 1:
+        with ProcessPoolExecutor(workers) as pool:
+            futures = [
+                pool.submit(
+                    _null_checkpoint, frozen, protocol, draws, r, checkpoint_root
+                )
+                for r in missing
+            ]
+            for future in futures:
+                future.result()
     statistics = []
     for replicate in range(count):
         path = checkpoint_root / f"{replicate:05d}.json"
@@ -161,12 +188,8 @@ def run_null_replicates(
             if value["replicate"] != replicate:
                 raise ValueError("Corrupt null checkpoint")
         else:
-            value = dict(
-                replicate=replicate,
-                statistic=null_statistic(frozen, protocol, draws, replicate),
+            value = _null_checkpoint(
+                frozen, protocol, draws, replicate, checkpoint_root
             )
-            temporary = path.with_suffix(".tmp")
-            temporary.write_bytes(canonical_json(value))
-            temporary.replace(path)
         statistics.append(value["statistic"])
     return dict(count=count, statistics=statistics, final=count >= FINAL_REPLICATES)

@@ -1,9 +1,22 @@
 import hashlib
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from lotto_model.ingestion.contracts import Artifact
+
+
+def _replace(source: Path, target: Path, attempts: int = 10):
+    """Windows scanners can briefly lock the target; retry before failing."""
+    for attempt in range(attempts):
+        try:
+            source.replace(target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.1 * (attempt + 1))
 
 
 class EvidenceStore:
@@ -47,7 +60,7 @@ class EvidenceStore:
         data["artifacts"].append(artifact.model_dump(mode="json"))
         temporary = self.manifest.with_suffix(".tmp")
         temporary.write_text(json.dumps(data, indent=2), encoding="utf8")
-        temporary.replace(self.manifest)
+        _replace(temporary, self.manifest)
         return artifact
 
     def read(self, artifact: Artifact, root: Path | None = None):
@@ -71,9 +84,15 @@ class EvidenceStore:
         return artifacts
 
     def cached(self, url):
+        """Latest valid artifact for url; only that body's hash is verified."""
         if not self.manifest.exists():
             return None
-        for artifact in reversed(self.load_manifest(self.manifest)):
-            if artifact.url == url and artifact.status == "valid":
+        data = json.loads(self.manifest.read_text(encoding="utf8"))
+        if data.get("version") != 1:
+            raise ValueError("Unsupported manifest version")
+        for entry in reversed(data["artifacts"]):
+            if entry["url"] == url and entry["status"] == "valid":
+                artifact = Artifact.model_validate(entry)
+                self.read(artifact)
                 return artifact
         return None
