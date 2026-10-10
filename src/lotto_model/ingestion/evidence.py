@@ -71,9 +71,15 @@ class EvidenceStore:
         return artifacts
 
     def cached(self, url):
+        """Latest valid artifact for url; only that body's hash is verified."""
         if not self.manifest.exists():
             return None
-        for artifact in reversed(self.load_manifest(self.manifest)):
-            if artifact.url == url and artifact.status == "valid":
+        data = json.loads(self.manifest.read_text(encoding="utf8"))
+        if data.get("version") != 1:
+            raise ValueError("Unsupported manifest version")
+        for entry in reversed(data["artifacts"]):
+            if entry["url"] == url and entry["status"] == "valid":
+                artifact = Artifact.model_validate(entry)
+                self.read(artifact)
                 return artifact
         return None
