@@ -85,10 +85,11 @@ to 2 September 2026).
   - The minimum detectable rate is 5.4%.
 - **Secondary comparisons (Holm p):** 5-line and 10-line any-3-plus, and
   one-line 5-plus, all have Holm p = 1.00.
-- **Null refits:** 100 of the 10,000 required. Monte Carlo p = 0.396.
-- **Verdict: no demonstrated advantage.** The report is formally "Not final"
-  until all 10,000 null refits are run (ruling 37). That cannot change the
-  conclusion, because the exact interval already includes chance.
+- **Null:** the exact Binomial(230, p0) null gives p = 0.355 (ruling 39).
+  The 100 pipeline refits agree with it: Monte Carlo p = 0.396, and the
+  check of pooled refit hits against p0 gives p = 0.613.
+- **Verdict (final): no demonstrated advantage.** Rates below 5.4% were not
+  detectable.
 
 This holdout lies inside the Phase 7 five-year window, so it is not unseen
 by the analyst (ruling 34).

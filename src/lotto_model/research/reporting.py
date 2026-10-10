@@ -7,10 +7,9 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-from scipy.stats import binomtest
+from scipy.stats import binom, binomtest
 
 from lotto_model.research.inference import (
-    FINAL_REPLICATES,
     calibration_bins,
     holm,
     infer_primary,
@@ -20,6 +19,31 @@ from lotto_model.research.inference import (
 from lotto_model.research.odds import p_at_least
 
 BOOTSTRAP_REPLICATES = 10_000
+# Refits only check the exact null; they do not estimate it (ruling 39).
+CHECK_REPLICATES = 100
+CHECK_ALPHA = 0.001
+
+
+def exact_null(primary: dict, nulls: dict) -> dict:
+    """Exact Binomial(trials, p0) null, checked against the pipeline refits.
+
+    Each holdout target is predicted from earlier draws only, and in a null
+    history that target is uniform and independent of them, so every hit is
+    Bernoulli(p0) whatever the model: the refit statistic is exactly
+    Binomial(trials, p0) / trials. Pooled refit hits must agree with p0.
+    """
+    trials, p0 = primary["trials"], primary["p0"]
+    pooled = round(sum(nulls["statistics"]) * trials)
+    check = binomtest(pooled, nulls["count"] * trials, p0).pvalue
+    return dict(
+        method="exact binomial",
+        replicates=nulls["count"],
+        p_value=float(binom.sf(primary["events"] - 1, trials, p0)),
+        monte_carlo_p=monte_carlo_p(primary["rate"], nulls["statistics"]),
+        refit_check_p=float(check),
+        refit_check_passed=bool(check > CHECK_ALPHA),
+        final=bool(nulls["count"] >= CHECK_REPLICATES and check > CHECK_ALPHA),
+    )
 
 
 def _rows(path: Path):
@@ -74,13 +98,7 @@ def build_findings(
     sensitivity = paired_bootstrap(
         model, uniform, BOOTSTRAP_REPLICATES, seed + 1, block=5
     )
-    null = None
-    if nulls is not None:
-        null = dict(
-            replicates=nulls["count"],
-            final=nulls["count"] >= FINAL_REPLICATES,
-            p_value=monte_carlo_p(primary["rate"], nulls["statistics"]),
-        )
+    null = None if nulls is None else exact_null(primary, nulls)
     secondary = {}
     _, five = _any_hits(rows, selected, 1, 5)
     secondary["one_line_5_plus_vs_exact"] = binomtest(
@@ -115,8 +133,13 @@ def build_findings(
     )
     if promising:
         verdict = "Promising; prospective confirmation still required."
+    elif null is not None and not null["refit_check_passed"]:
+        verdict = "Invalid: pipeline refits disagree with the exact uniform null."
     elif null is None or not null["final"]:
-        verdict = "Not final: 10,000 null replicates are required before inference."
+        verdict = (
+            f"Not final: {CHECK_REPLICATES} null refits are required to check "
+            "the exact null before inference."
+        )
     else:
         verdict = (
             "No demonstrated advantage. Low power is not evidence of equality; "
@@ -170,8 +193,10 @@ def write_findings(output: Path, findings: dict, protocol_digest: str) -> Path:
     lines.append(
         "- Null refits: not run"
         if null is None
-        else f"- Null refits: {null['replicates']} (final={null['final']}), "
-        f"Monte Carlo p = {null['p_value']:.4f}"
+        else f"- Null: exact Binomial p = {null['p_value']:.4f}; "
+        f"{null['replicates']} pipeline refits (final={null['final']}), "
+        f"Monte Carlo p = {null['monte_carlo_p']:.4f}, refit check vs p0 "
+        f"p = {null['refit_check_p']:.4f}"
     )
     lines += ["", "## Secondary comparisons (Holm-adjusted, descriptive)", ""]
     for name, value in findings["secondary_holm"].items():
