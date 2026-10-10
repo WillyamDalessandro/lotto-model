@@ -83,6 +83,44 @@ assuming every number is equally likely.
    reliably. Smaller real effects cannot be excluded, but none of the
    observed differences is consistent across regimes.
 
+## Training-data combinations (6/47)
+
+The evaluation stayed fixed: the same 522 draws of 6/47 (September 2021 to
+September 2026), the same chance comparison and the same 52-test Holm family.
+Only the training data changed. Tuning still used only the 100 draws before
+the window. Pooled games ended in 2015 or earlier, so no future draw leaked
+in. Pooled rows carry an extra base-rate feature (6/pool) because the number
+ranges differ (ruling 41).
+
+```bash
+uv run lotto research study data/snapshots/<digest> --rule-code 6/47 --training-window 250
+uv run lotto research study data/snapshots/<digest> --rule-code 6/47 --pool-with 6/42 --pool-with 6/45
+uv run lotto research compare data/studies/<a> data/studies/<b> ...
+```
+
+| Training data | Best by numbers matched (vs chance) | Best one-line 3+ (vs chance) | Best 10-line 3+ (vs chance) | Best model log loss minus uniform | Significant |
+|---|---|---|---|---|---:|
+| all earlier draws of the regime | forest/weighted 0.797 vs 0.766 (Holm 1.00) | boosting/top6 2.9% vs 2.1% | boosting 21.1% vs 19.3% | +0.00014 | 0 |
+| the latest 250 earlier draws of the regime | mlp/weighted 0.816 vs 0.766 (Holm 1.00) | boosting/top6 2.7% vs 2.1% | logistic 23.0% vs 19.0% | +0.00011 | 0 |
+| the latest 500 earlier draws of the regime | boosting/weighted 0.808 vs 0.766 (Holm 1.00) | mlp/top6 2.9% vs 2.1% | logistic 20.9% vs 19.2% | +0.00012 | 0 |
+| all earlier draws of the regime plus all draws of 6/45 | mlp/top6 0.820 vs 0.766 (Holm 1.00) | forest/weighted 3.3% vs 2.1% | mlp 21.1% vs 19.0% | +0.00016 | 0 |
+| all earlier draws of the regime plus all draws of 6/42, 6/45 | forest/weighted 0.822 vs 0.766 (Holm 1.00) | forest/weighted 3.3% vs 2.1% | mlp 19.3% vs 19.0% | +0.00010 | 0 |
+| all earlier draws of the regime plus all draws of 6/36, 6/39, 6/42, 6/45 | forest/coverage10 2.151 vs 2.130 (Holm 1.00) | forest/top6 2.9% vs 2.1% | boosting 20.5% vs 19.3% | +0.00012 | 0 |
+
+- **No combination produced a significant result.** Every Holm p-value is
+  1.00.
+- **Every model's probabilities stay worse than uniform** (positive log-loss
+  gap) with every training set. More data, older data and only recent data
+  all fail to improve on "every number equally likely".
+- **The winning model changes with every training set** (forest, MLP,
+  boosting, forest, forest). The best one-line rate stays between 2.7% and
+  3.3%, against 2.1% by chance. One-line 3.3% is 17 hits in 522 draws, which
+  is within what the best of 26 methods reaches by luck.
+- **Training on recent draws only did not help.** A drift or a recent bias
+  in the machines would have shown up here.
+- **Pooling more history did not help either.** About 2,400 extra draws from
+  1990 to 2015 only add more independent random outcomes.
+
 ## Software verification
 
 A run on synthetic uniform draws of the same size (1,158 draws) also reported

@@ -79,6 +79,9 @@ class StudyConfig(BaseModel):
     search_space: dict = Field(default_factory=lambda: SEARCH_SPACE)
     null_samples: int = Field(default=20_000, ge=1000)
     root_seed: int = ROOT_SEED
+    # Training-data variants; evaluation draws and tests never change.
+    training_window: int | None = Field(default=None, ge=25)
+    pooled_regimes: tuple[str, ...] = ()
     tuning: str = (
         "full predeclared grid; each setting walk-forward over the tuning blocks "
         "immediately before the evaluation window, refit at each block start"
@@ -101,7 +104,12 @@ class StudyConfig(BaseModel):
 
     @property
     def digest(self) -> str:
-        return sha256(canonical_json(self.model_dump(mode="json")))
+        data = self.model_dump(mode="json")
+        # Default training data keeps the digests of earlier studies.
+        for name in ("training_window", "pooled_regimes"):
+            if not data[name]:
+                data.pop(name)
+        return sha256(canonical_json(data))
 
 
 def settings(config: StudyConfig, family: str) -> list[dict]:
@@ -166,9 +174,11 @@ def split(config: StudyConfig, draws: list[ResearchDraw]) -> dict:
 
 
 class FeatureCache(dict):
-    def __init__(self, draws):
+    def __init__(self, draws, pooled=None):
         super().__init__()
         self.draws = draws
+        # Rows from earlier regimes: (values with base rate, labels) or None.
+        self.pooled = pooled
 
     def features(self, index):
         if index not in self:
@@ -176,24 +186,58 @@ class FeatureCache(dict):
         return self[index]
 
 
+def with_base_rate(values: np.ndarray, pool: int) -> np.ndarray:
+    """Pooled regimes differ in base rate 6/pool; give the model that column."""
+    return np.column_stack([values, np.full(len(values), 6 / pool)])
+
+
+def pooled_rows(config, regimes: dict[str, list[ResearchDraw]], first_date):
+    """Supervised rows of earlier regimes, all drawn before the studied one."""
+    if set(regimes) != set(config.pooled_regimes):
+        raise ValueError("Pooled draws must match the configured regimes")
+    values, y = [], []
+    for code in config.pooled_regimes:
+        draws = regimes[code]
+        if not draws or draws[-1].draw_date >= first_date:
+            raise ValueError(f"Pooled regime {code} must end before the study")
+        if len(draws) <= config.feature_warmup:
+            raise ValueError(f"insufficient_data: pooled regime {code}")
+        rows, labels_ = training_rows(draws, len(draws), config.feature_warmup)
+        values.append(with_base_rate(rows.values, draws[0].pool))
+        y.append(labels_)
+    return np.vstack(values), np.concatenate(y)
+
+
+def model_inputs(config, values: np.ndarray) -> np.ndarray:
+    return with_base_rate(values, config.pool) if config.pooled_regimes else values
+
+
 def walk_forward(config, draws, cache, family, params, start, end, label):
     """Marginals for targets start..end-1; fit at each block on earlier rows."""
     marginals, converged = {}, True
     for block in range(start, end, config.block_size):
-        rows, y = training_rows(draws, block, config.feature_warmup, cache)
+        first = config.feature_warmup
+        if config.training_window is not None:
+            first = max(first, block - config.training_window)
+        rows, y = training_rows(draws, block, first, cache)
+        values = model_inputs(config, rows.values)
+        if cache.pooled is not None:
+            values = np.vstack([cache.pooled[0], values])
+            y = np.concatenate([cache.pooled[1], y])
         seed = derive_seed(
             config.digest, label, draws[block].draw_date, 0, 0, config.root_seed
         )
         model = estimator(family, params, seed)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", ConvergenceWarning)
-            model.fit(rows.values, y)
+            model.fit(values, y)
         converged &= not any(issubclass(w.category, ConvergenceWarning) for w in caught)
         for index in range(block, min(block + config.block_size, end)):
             features = cache.features(index)
             if features.max_input_date >= draws[index].draw_date:
                 raise ValueError("Feature leakage detected")
-            marginals[index] = model.predict_proba(features.values)[:, 1]
+            inputs = model_inputs(config, features.values)
+            marginals[index] = model.predict_proba(inputs)[:, 1]
     return marginals, converged
 
 
@@ -493,6 +537,17 @@ def best(summary) -> dict:
     )
 
 
+def training_description(config) -> str:
+    window = (
+        "all earlier draws of the regime"
+        if config.training_window is None
+        else f"the latest {config.training_window} earlier draws of the regime"
+    )
+    if config.pooled_regimes:
+        window += " plus all draws of " + ", ".join(config.pooled_regimes)
+    return window
+
+
 def findings(config, bounds, draws, chosen, results) -> str:
     summary = results["summary"]
     top = best(summary)
@@ -505,6 +560,7 @@ def findings(config, bounds, draws, chosen, results) -> str:
         f"- Config digest: `{config.digest}`",
         f"- Snapshot digest: `{config.snapshot_digest}`",
         f"- Regime: {config.rule_code} (pool {config.pool})",
+        f"- Training data: {training_description(config)}",
         f"- Evaluation window: {start.draw_date} to {end.draw_date} "
         f"({bounds['end'] - bounds['evaluation_start']} draws); tuning used the "
         f"{bounds['evaluation_start'] - bounds['tuning_start']} draws before it.",
@@ -596,12 +652,22 @@ def _csv(rows) -> bytes:
     return buffer.getvalue().encode("utf8")
 
 
-def run_study(config: StudyConfig, draws: list[ResearchDraw], output_root: Path):
+def run_study(
+    config: StudyConfig,
+    draws: list[ResearchDraw],
+    output_root: Path,
+    pooled: dict[str, list[ResearchDraw]] | None = None,
+):
     """Tune, evaluate and write an immutable, content-addressed result folder."""
     if config.pool != draws[0].pool:
         raise ValueError("Configured pool differs from the draws")
     bounds = split(config, draws)
-    cache = FeatureCache(draws)
+    extra = (
+        pooled_rows(config, pooled or {}, draws[0].draw_date)
+        if config.pooled_regimes
+        else None
+    )
+    cache = FeatureCache(draws, extra)
     tuning, chosen = tune(config, draws, cache, bounds)
     results = evaluate(config, draws, cache, bounds, chosen)
     reported = summarise(results["outcomes"], results["calibration"])
@@ -622,3 +688,50 @@ def run_study(config: StudyConfig, draws: list[ResearchDraw], output_root: Path)
     manifest = {name: sha256(body) for name, body in files.items()}
     write_once(output / "manifest.json", canonical_json(manifest))
     return output, reported
+
+
+def _read_csv(path: Path) -> list[dict]:
+    return list(csv.DictReader(io.StringIO(path.read_text(encoding="utf8"))))
+
+
+def compare_studies(folders: list[Path]) -> str:
+    """One table across studies that share an evaluation window."""
+    rows = []
+    for folder in map(Path, folders):
+        config = StudyConfig.model_validate_json((folder / "config.json").read_text())
+        summary = _read_csv(folder / "summary.csv")
+        calibration = {
+            r["source"]: float(r["log_loss"])
+            for r in _read_csv(folder / "calibration.csv")
+        }
+        models = [r for r in summary if r["source"] in config.families]
+        top = max(models, key=lambda r: (float(r["match_lift"]), float(r["lift"])))
+        single = max(
+            (r for r in models if int(r["lines"]) == 1), key=lambda r: float(r["rate"])
+        )
+        ten = max(
+            (r for r in models if r["method"] == "coverage10"),
+            key=lambda r: float(r["rate"]),
+        )
+        best_loss = min(calibration[f] for f in config.families)
+        rows.append(
+            f"| {training_description(config)} | {top['source']}/{top['method']} "
+            f"{float(top['mean_matches']):.3f} vs {float(top['expected_matches']):.3f} "
+            f"(Holm {float(top['match_holm_p_value']):.2f}) | "
+            f"{single['source']}/{single['method']} {float(single['rate']):.1%} vs "
+            f"{float(single['expected_rate']):.1%} | "
+            f"{ten['source']} {float(ten['rate']):.1%} vs "
+            f"{float(ten['expected_rate']):.1%} | "
+            f"{best_loss - calibration['uniform']:+.5f} | "
+            f"{sum(r['significant'] == 'True' for r in summary)} |"
+        )
+    return "\n".join(
+        [
+            "| Training data | Best by numbers matched (vs chance) | Best one-line 3+ "
+            "(vs chance) | Best 10-line 3+ (vs chance) | Best model log loss minus "
+            "uniform | Significant |",
+            "|---|---|---|---|---|---:|",
+            *rows,
+            "",
+        ]
+    )

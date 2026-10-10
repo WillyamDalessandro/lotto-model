@@ -15,6 +15,7 @@ from lotto_model.research.study import (
     coverage_lines,
     heuristic_lines,
     poisson_binomial_tail,
+    pooled_rows,
     run_study,
     split,
     tune,
@@ -172,3 +173,79 @@ def test_coverage_lines_stay_distinct_for_every_regime_pool(pool):
     lines = coverage_lines(np.linspace(1, 0, pool), 10)
     assert len(set(lines)) == 10
     assert all(len(set(line)) == 6 for line in lines)
+
+
+def _earlier_regime(draws, pool=45, rule_code="6/45"):
+    """Same synthetic shape, shifted to end before the studied regime."""
+    from datetime import timedelta
+
+    span = draws[-1].draw_date - draws[0].draw_date + timedelta(days=7)
+    return [
+        replace(
+            d,
+            draw_date=d.draw_date - span,
+            rule_code=rule_code,
+            pool=pool,
+            mains=tuple(min(n, pool) for n in d.mains)
+            if max(d.mains) <= pool
+            else tuple(sorted({n % pool + 1 for n in d.mains} | set(range(1, 7))))[:6],
+        )
+        for d in draws
+    ]
+
+
+def test_default_training_keeps_earlier_digests():
+    base = small_config()
+    assert "training_window" not in base.model_dump(exclude_defaults=True)
+    assert small_config(training_window=None).digest == base.digest
+    assert small_config(training_window=25).digest != base.digest
+    assert small_config(pooled_regimes=("6/45",)).digest != base.digest
+
+
+def test_dataset_variants_never_read_evaluation_outcomes(research_draws):
+    draws = research_draws(90)
+    earlier = _earlier_regime(research_draws(60, seed=3))
+    for overrides in (dict(training_window=25), dict(pooled_regimes=("6/45",))):
+        config = small_config(**overrides)
+        bounds = split(config, draws)
+        altered = list(draws)
+        for i in range(bounds["evaluation_start"], len(draws)):
+            altered[i] = replace(draws[i], mains=(1, 2, 3, 4, 5, 6))
+        pooled = (
+            pooled_rows(config, {"6/45": earlier}, draws[0].draw_date)
+            if config.pooled_regimes
+            else None
+        )
+        first = tune(config, draws, FeatureCache(draws, pooled), bounds)
+        second = tune(config, altered, FeatureCache(altered, pooled), bounds)
+        assert first == second
+
+
+def test_pooled_study_runs_and_refuses_overlapping_regimes(tmp_path, research_draws):
+    draws = research_draws(90)
+    earlier = _earlier_regime(research_draws(60, seed=3))
+    config = small_config(pooled_regimes=("6/45",))
+    output, reported = run_study(config, draws, tmp_path, {"6/45": earlier})
+    assert "plus all draws of 6/45" in (output / "findings.md").read_text()
+    assert any(r["source"] == "boosting" for r in reported["summary"])
+    with pytest.raises(ValueError, match="must end before"):
+        run_study(config, draws, tmp_path / "x", {"6/45": draws})
+    with pytest.raises(ValueError, match="match the configured"):
+        run_study(config, draws, tmp_path / "y", {})
+
+
+def test_training_window_limits_rows(tmp_path, research_draws):
+    draws = research_draws(90)
+    output, _ = run_study(small_config(training_window=25), draws, tmp_path)
+    assert "latest 25 earlier draws" in (output / "findings.md").read_text()
+
+
+def test_compare_studies_tables_variants(tmp_path, research_draws):
+    from lotto_model.research.study import compare_studies
+
+    draws = research_draws(90)
+    base, _ = run_study(small_config(), draws, tmp_path)
+    window, _ = run_study(small_config(training_window=25), draws, tmp_path)
+    table = compare_studies([base, window])
+    assert "all earlier draws" in table and "latest 25" in table
+    assert len(table.strip().splitlines()) == 4
