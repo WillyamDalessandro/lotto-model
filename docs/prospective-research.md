@@ -71,3 +71,24 @@ power and stopping protocol.
 
 No scheduler, browser automation, purchase, payment or ticket submission is
 created. Results refresh through permitted offline imports only.
+
+## Real run status (10 October 2026)
+
+- Protocol `3152d204…` runs under 6/45-2026 with a single uniform arm
+  (ruling 35).
+- Three issues are recorded: 12, 14 and 17 October 2026, 48 lines in total.
+- `lotto prospective evaluate` and `lotto prospective report` were both run.
+  All 48 lines are pending, with 0 completed draws, because none of the
+  target draws has happened yet.
+- The review window is 100 completed draws, about eight months at three
+  draws a week. Phase 6 is an ongoing process by design. Results can be
+  added only after each draw, never before (ruling 40).
+
+The cycle after each draw is:
+
+```bash
+uv run lotto data collect
+uv run lotto prospective evaluate data/prospective/<protocol>
+uv run lotto prospective report data/prospective/<protocol>
+uv run lotto prospective issue ...   # the next draw, before 19:45 Europe/Dublin
+```
