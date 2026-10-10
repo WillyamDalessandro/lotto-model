@@ -231,3 +231,17 @@ be used instead of the 282-draw minimum.
     yet, so they cannot be produced early. Producing them early would mean
     inventing outcomes. The Phase 6 review happens once 100 draws are
     completed.
+41. **Training-data combinations vary only what the models fit on.**
+    - `--training-window N` keeps only the latest N training targets.
+      Features still use the full history.
+    - `--pool-with CODE` adds every draw of an earlier rule regime. The study
+      refuses a pooled regime that does not end before the studied one, and
+      refuses one with no more draws than the feature warmup. That is why
+      6/36-saturday (111 draws) was left out.
+    - Pooled rows, and the studied regime's own rows, get a 6/pool
+      base-rate column, so one model can learn from games with different
+      ranges.
+    - Configs with the default training data keep their earlier digests, so
+      past studies remain addressable.
+    - Six 6/47 variants were run: all history, 250, 500, plus 6/45, plus 6/42
+      and 6/45, and plus 6/36, 6/39, 6/42 and 6/45. None was significant.

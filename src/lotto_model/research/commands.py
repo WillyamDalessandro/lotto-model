@@ -255,6 +255,12 @@ def study_command(
     rule_code: str = typer.Option(...),
     output_root: Path = Path("data/studies"),
     evaluation_days: int = typer.Option(1826, help="Evaluation window length."),
+    training_window: int | None = typer.Option(
+        None, help="Train on only the latest N earlier draws of the regime."
+    ),
+    pool_with: list[str] = typer.Option(
+        [], help="Earlier rule codes whose draws are added to training."
+    ),
 ):
     """Phase 7: tune on earlier draws, evaluate the last five years, compare."""
     from lotto_model.research.protocol import load_population, snapshot_digest
@@ -268,8 +274,11 @@ def study_command(
         rule_code=rule_code,
         pool=draws[0].pool,
         evaluation_days=evaluation_days,
+        training_window=training_window,
+        pooled_regimes=tuple(pool_with),
     )
-    output, reported = run_study(config, draws, output_root)
+    pooled = {code: load_population(snapshot, code) for code in pool_with}
+    output, reported = run_study(config, draws, output_root, pooled)
     top = best(reported["summary"])
     typer.echo(
         json.dumps(
@@ -284,3 +293,19 @@ def study_command(
             )
         )
     )
+
+
+@app.command("compare")
+@safe_command
+def compare_command(
+    studies: list[Path],
+    output: Path | None = typer.Option(None, help="Write the table here too."),
+):
+    """Compare study folders that share an evaluation window (dataset variants)."""
+    from lotto_model.research.study import compare_studies
+
+    table = compare_studies(studies)
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(table, encoding="utf8")
+    typer.echo(table)
