@@ -225,3 +225,9 @@ be used instead of the 282-draw minimum.
       check p = 0.613. A chi-square test of the refit histogram against the
       binomial gives p = 0.32. The verdict did not depend on the change:
       both p-values are far from 0.05.
+40. **Phase 6 is complete as software and running as a process.** Every
+    command has been run on the real protocol (protocol, issue, evaluate and
+    report). The evaluation results depend on draws that have not happened
+    yet, so they cannot be produced early. Producing them early would mean
+    inventing outcomes. The Phase 6 review happens once 100 draws are
+    completed.
