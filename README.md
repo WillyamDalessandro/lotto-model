@@ -23,6 +23,8 @@ Phase 1 implements the local Python/PostgreSQL stack. Phase 2 adds evidence stor
 
 Phase 7 runs on that real data: `lotto research study` tunes on earlier draws only, evaluates the last five years of each rule regime, and compares four ML model families, frequency, heuristics and random selection across several line-selection methods. See [Phase 7 study](docs/phase7-study.md).
 
+Phase 8 adds context features (jackpot, holidays, previous prizes). It chose a model on earlier draws and confirmed it once on unseen draws: 2.17% one-line 3+ against 2.10% by chance, so the 3% target was not reached. `lotto research roi` reports the cost, the chance of a big prize and the expected return for any number of lines and draws. See [Phase 8](docs/phase8-roi.md).
+
 The software for Phases 3–6 is implemented and verified with synthetic data:
 
 - Reviewed offline acquisition batches: [acquisition completion](docs/acquisition-completion.md).
