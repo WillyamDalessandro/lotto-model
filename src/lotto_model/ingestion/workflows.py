@@ -11,6 +11,7 @@ from lotto_model.ingestion.evidence import EvidenceStore
 from lotto_model.ingestion.parsers import (
     parse_archive,
     parse_detail,
+    parse_lottonet_detail,
     parse_lottonet_year,
     parse_operator,
 )
@@ -88,7 +89,9 @@ def parse_saved(body, url, adapter):
                 raise ValueError("Unsupported detail path")
             return [parse_detail(body, url)]
         if host == "www.lotto.net":
-            return parse_lottonet_year(body, url)
+            if re.fullmatch(r"/irish-lotto/results/\d{4}", urlparse(url).path):
+                return parse_lottonet_year(body, url)
+            return [parse_lottonet_detail(body, url)]
         raise ValueError("Unsupported source adapter; use an explicit CSV import")
     raise ValueError("Unsupported adapter")
 
