@@ -209,3 +209,19 @@ be used instead of the 282-draw minimum.
     prize tiers and context are identical once those provenance fields are
     removed. Past-year pages are cached, so their provenance is identical
     too.
+39. **The Phase 5 null is exact; pipeline refits check it (supersedes
+    ruling 37).**
+    - Every holdout target is predicted from earlier draws only. In a null
+      history that target is uniform and independent of those draws. Each
+      hit is therefore Bernoulli(p0) whatever the model does, and the refit
+      statistic is exactly Binomial(230, p0)/230.
+    - The 10,000 Monte Carlo refits only estimated that known distribution,
+      at about 41 core-days (178 s per refit).
+    - The report now uses the exact binomial p-value. It still requires at
+      least 100 pipeline refits, and their pooled hits must agree with p0
+      (binomial test, p > 0.001), so a leak or bug in the pipeline would
+      still be caught.
+    - Real run: exact p = 0.355; Monte Carlo p from 100 refits = 0.396; refit
+      check p = 0.613. A chi-square test of the refit histogram against the
+      binomial gives p = 0.32. The verdict did not depend on the change:
+      both p-values are far from 0.05.

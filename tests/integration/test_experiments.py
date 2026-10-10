@@ -182,7 +182,7 @@ def test_reconcile_report_and_cli(frozen_run, monkeypatch, test_url):
         app, ["research", "report", str(frozen), "--snapshot", str(snapshot)]
     )
     assert reported.exit_code == 0, reported.output
-    assert "Not final" in json.loads(reported.output)["verdict"]
+    assert "Not final" in json.loads(reported.output)["verdict"]  # 2 < 100 refits
     text_report = (output / "report.md").read_text()
     assert "Retrospective simulation" in text_report
     assert (output / "model-card.md").exists()
