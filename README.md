@@ -19,7 +19,7 @@ Read [the implementation plan](docs/implementation-plan.md) for data contracts, 
 
 ## Status
 
-Phase 1 implements the local Python/PostgreSQL stack. Phase 2 adds evidence storage, offline draw imports, reconciliation, complementary imports, official report metrics and coverage reporting. See [ingestion operations](docs/ingestion.md) and [actual coverage and remaining gates](docs/phase2-coverage.md). `lotto data collect` backfills the full draw history (3,909 draws, 1988–2026) from a permitted source, with reviewed rule evidence. Prize breakdowns are still outstanding. See [local development](docs/local-development.md) for setup, tests and backups.
+Phase 1 implements the local Python/PostgreSQL stack. Phase 2 adds evidence storage, offline draw imports, reconciliation, complementary imports, official report metrics and coverage reporting. See [ingestion operations](docs/ingestion.md) and [actual coverage and remaining gates](docs/phase2-coverage.md). `lotto data collect` backfills the full draw history (3,909 draws, 1988–2026) from a permitted source, with reviewed rule evidence. `--prizes` adds per-draw prize breakdowns (26,177 tiers). Replay, isolated reconstruction and backup/restore were verified on the real data, so Phase 2 is complete. See [local development](docs/local-development.md) for setup, tests and backups.
 
 Phase 7 runs on that real data: `lotto research study` tunes on earlier draws only, evaluates the last five years of each rule regime, and compares four ML model families, frequency, heuristics and random selection across several line-selection methods. See [Phase 7 study](docs/phase7-study.md).
 
@@ -32,7 +32,7 @@ The software for Phases 3–6 is implemented and verified with synthetic data:
 - Leakage-safe experiments with an immutable ledger: [historical experiments](docs/historical-experiments.md).
 - Pre-result prospective records: [prospective research](docs/prospective-research.md).
 
-A real audited snapshot now exists (see coverage). The Phase 5 once-only holdout protocol and Phase 6 prospective issuance have not been run on it yet. Decisions taken during implementation are recorded in [implementation decisions](docs/implementation-decisions.md).
+Phase 5 ran once on the real snapshot: the selected model hit 3+ on 6 of 230 holdout draws (2.6%, chance 2.1%), with no demonstrated advantage (see historical experiments). Phase 6 prospective tracking started on 12 October 2026 with a uniform arm. Decisions taken during implementation are recorded in [implementation decisions](docs/implementation-decisions.md).
 
 The initial historical experiment uses the 6/47 regime. The small 6/45 sample is not sufficient for reliable evaluation. Historical prize-sharing correlations are not evidence that winning numbers can be predicted. A result showing no advantage over random selection is a valid outcome.
 

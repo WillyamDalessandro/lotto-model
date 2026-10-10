@@ -1,9 +1,22 @@
 import hashlib
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from lotto_model.ingestion.contracts import Artifact
+
+
+def _replace(source: Path, target: Path, attempts: int = 10):
+    """Windows scanners can briefly lock the target; retry before failing."""
+    for attempt in range(attempts):
+        try:
+            source.replace(target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.1 * (attempt + 1))
 
 
 class EvidenceStore:
@@ -47,7 +60,7 @@ class EvidenceStore:
         data["artifacts"].append(artifact.model_dump(mode="json"))
         temporary = self.manifest.with_suffix(".tmp")
         temporary.write_text(json.dumps(data, indent=2), encoding="utf8")
-        temporary.replace(self.manifest)
+        _replace(temporary, self.manifest)
         return artifact
 
     def read(self, artifact: Artifact, root: Path | None = None):

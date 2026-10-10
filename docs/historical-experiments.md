@@ -68,3 +68,27 @@ digests. It is research output, not betting advice.
 
 Records are retrospective simulations. Issue time is execution time and the
 cutoff is target-relative, so they are not real pre-draw forecasts.
+
+## Real-snapshot run (10 October 2026)
+
+Protocol `32855ff1…` on snapshot `a3ea572d…` covers 1,148 draws of 6/47.
+Development has 918 draws and the locked holdout has 230 draws (22 June 2024
+to 2 September 2026).
+
+- **Baselines:** 10,000 seeded simulations on the development folds.
+- **Development selection:** `boosting-leaves7`, chosen on folds only. Frozen
+  identity `87626c15…`.
+- **Holdout, one line per draw:**
+  - 3-plus matches: 6/230 = 2.61%. Exact chance is 2.10%.
+  - 95% Clopper-Pearson interval: 0.96% to 5.59%.
+  - The improvement interval is -1.14 to +3.49 points, so it includes zero.
+  - The minimum detectable rate is 5.4%.
+- **Secondary comparisons (Holm p):** 5-line and 10-line any-3-plus, and
+  one-line 5-plus, all have Holm p = 1.00.
+- **Null refits:** 100 of the 10,000 required. Monte Carlo p = 0.396.
+- **Verdict: no demonstrated advantage.** The report is formally "Not final"
+  until all 10,000 null refits are run (ruling 37). That cannot change the
+  conclusion, because the exact interval already includes chance.
+
+This holdout lies inside the Phase 7 five-year window, so it is not unseen
+by the analyst (ruling 34).

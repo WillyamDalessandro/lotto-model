@@ -194,3 +194,18 @@ be used instead of the 282-draw minimum.
     unchanged. Tests check that parallel and sequential runs give equal
     results. Without this, 10,000 baseline simulations (about 4.7 hours) and
     10,000 null refits would not finish in a working session.
+37. **Phase 5 inference stops at 100 null refits.** Each refit repeats the
+    230-draw holdout training, and takes about 1.5 minutes even in parallel.
+    The 10,000 refits the protocol needs for a final verdict would take about
+    10 days. The report therefore stays "Not final". The exact uniform
+    comparison and the Clopper-Pearson interval do not depend on the refits,
+    and they already show no demonstrated advantage. More refits can be
+    resumed later with `lotto research nulls --count 10000 --workers N`.
+38. **Reconstruction is judged on values, not digests.** A snapshot digest
+    covers provenance: evidence hashes, observation keys and counts of
+    staged, undated records. A rebuild that refetches the current year's
+    page therefore always gets a new digest, even when no value has
+    changed. Phase 2 reproducibility is accepted because the draws, rules,
+    prize tiers and context are identical once those provenance fields are
+    removed. Past-year pages are cached, so their provenance is identical
+    too.

@@ -13,7 +13,7 @@ exists.
 | Draws with jackpot outcome (Won/Roll) | 1,703 | Only where the archive marks the outcome |
 | Verified rule intervals | 7: 6/36 Saturday-only, 6/36, 6/39, 6/42, 6/45, 6/47 and 6/45-2026 | Wikipedia (CC BY-SA) and the 2015 trade announcement |
 | Reviewed schedule exceptions | 23 calendar events | Christmas and moved draws, bound to archive evidence |
-| Prize breakdowns | 0 | lotto.net per-draw pages exist, at about 3,900 requests (≈5.5 h at the crawl delay); not needed for training |
+| Prize breakdowns | 26,177 tiers for all 3,909 draws | lotto.net per-draw pages (ruling 33). Pre-2002 amounts and "-" cells stay null: 10,448 tiers have no euro amount and 13,099 have no winner count |
 | Undated 6/42 combinations | 264 (journal dataset) | Kept staged; no individual draw dates |
 | Official period metrics | 112 annual all-games metrics | Regulator and C&AG; not draw-level |
 
@@ -24,8 +24,10 @@ Draws per rule regime in the snapshot: 6/36-saturday 111, 6/36 232, 6/39 218,
 
 `lotto audit report` for 1988-04-16 to 2026-10-09 includes all 3,909 draws,
 excludes none, finds no missing or unexpected scheduled dates and is
-`snapshot_ready`. The bundle is
-`data/snapshots/a3ea572d5deacd3cd80336a8cc682d55f4e8c25c4979b789c9b8572d1744766d`.
+`snapshot_ready`. The current bundle, which includes prize breakdowns, is
+`data/snapshots/58810b9774cf861c768e733fba652b2c1e682c3f582c56426923a9e80ff4ba89`.
+Phase 5 and Phase 7 ran on the earlier draws-only bundle `a3ea572d…`. That
+bundle has the same 3,909 draws.
 
 ## Source policy
 
@@ -41,10 +43,17 @@ excludes none, finds no missing or unexpected scheduled dates and is
 ## Reproduce
 
 ```bash
-uv run lotto data collect
+uv run lotto data collect --prizes
 uv run lotto data enrich data/raw/backfill-import/manifest.json data/reviews/calendar-exceptions.json
 uv run lotto audit snapshot --start 1988-04-16 --end 2026-10-09 --evidence-root data --bindings data/reviews/rule-bindings.json
 ```
 
-Phase 2's formal completion still lists prize breakdowns as outstanding, along
-with the backup/restore review.
+## Completion checks (10 October 2026)
+
+- **Replay:** a second `lotto data collect --prizes` from the evidence cache
+  found nothing new. All 3,909 draws and prize pages were corroborated, and
+  the one staged draw stayed staged.
+- **Backup and restore:** a `pg_dump -Fc` of the research database (1.6 MB)
+  was restored into `lotto_restore_20261010_test` on the isolated server. All
+  26 table row counts are identical.
+- **Isolated reconstruction:** see `docs/acquisition-completion.md`.

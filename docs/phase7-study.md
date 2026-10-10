@@ -95,5 +95,6 @@ manifests on rerun), exact null rates and coverage portfolios for every pool.
 - Prospective tracking (Phase 6) on the current 6/45-2026 regime is the only
   clean confirmation of any idea, because future draws cannot have been tuned
   on.
-- Prize breakdowns (about 3,900 per-draw pages) remain to be backfilled. They
-  matter for cost and return analysis, not for number prediction.
+- Prize breakdowns are now backfilled (snapshot `58810b97…`). They matter for
+  cost and return analysis, not for number prediction. The draws are
+  unchanged, so these results stand.
