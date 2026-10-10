@@ -249,3 +249,16 @@ def test_compare_studies_tables_variants(tmp_path, research_draws):
     table = compare_studies([base, window])
     assert "all earlier draws" in table and "latest 25" in table
     assert len(table.strip().splitlines()) == 4
+
+
+def test_select_line_candidate_prefers_highest_one_line_rate(tmp_path, research_draws):
+    from lotto_model.research.study import select_line_candidate
+
+    draws = research_draws(90)
+    base, _ = run_study(small_config(), draws, tmp_path)
+    window, _ = run_study(small_config(training_window=25), draws, tmp_path)
+    result = select_line_candidate([base, window])
+    rates = [c["rate"] for c in result["ranking"]]
+    assert rates == sorted(rates, reverse=True)
+    assert result["selected"]["method"] in ("top6", "weighted")
+    assert result["candidates"] == 2 * 2 * 2

@@ -245,3 +245,43 @@ be used instead of the 282-draw minimum.
       past studies remain addressable.
     - Six 6/47 variants were run: all history, 250, 500, plus 6/45, plus 6/42
       and 6/45, and plus 6/36, 6/39, 6/42 and 6/45. None was significant.
+42. **Phase 8 selects a model and dataset on earlier draws, then confirms
+    once.** This was fixed before any Phase 8 run.
+    - **Context features**, all known before a draw:
+      - jackpot: the advertised jackpot, rollovers, and days since the
+        jackpot was last won (from Match 6 winners of earlier draws);
+      - holiday: days to the nearest Irish public holiday, and a flag for
+        within 3 days;
+      - prize: the previous draw's Match 3 winners, Match 4 prize and Match 5
+        prize.
+    - **Selection stage:**
+      - Data: 6/47 draws up to 19 June 2024, the day before the Phase 5
+        holdout. The evaluation window is the last 1,000 days (about 430
+        draws). Tuning uses the 100 draws before that window, as in Phase 7.
+      - Eight datasets: base, plus jackpot, plus holiday, plus prize, plus
+        all context, all context plus 6/45, 6/42 and 6/45 pooled, and all
+        context with a 250-draw window.
+      - The winner is the dataset, model and one-line method (top6 or
+        weighted) with the highest one-line 3+ rate, ties broken by numbers
+        matched.
+    - **Confirmation stage:**
+      - Only that winner runs once on the 230 draws from 22 June 2024 to
+        2 September 2026. No setting may change after selection.
+      - The user's target is a one-line 3+ rate of 3%, against 2.10% by
+        chance. Reaching 3% in selection is expected by luck alone when
+        about 64 candidates compete. Only the confirmation rate and its
+        interval count.
+43. **Phase 8 outcome and return-model inputs.**
+    - The selected candidate did not reach 3% on the 230 confirmation draws
+      (5/230 = 2.17%, p = 0.53). By ruling 42 no other candidate may be
+      tried on those draws, so no model is carried forward. The return
+      report therefore uses fair-draw probabilities. The selection-stage
+      lift is shown only as a labelled what-if.
+    - The line price is EUR 2. That is the 2015 price in the saved Wikipedia
+      evidence, and the 2026 change text mentions no new price.
+    - Prizes are the median paid per tier in the current regime.
+    - Lines sold are estimated as median Match 3 winners divided by
+      P(Match 3). Jackpot sharing assumes the other winners follow a
+      Poisson distribution with that many lines.
+    - The next jackpot is the starting jackpot after a win; otherwise it is
+      the last advertised amount.

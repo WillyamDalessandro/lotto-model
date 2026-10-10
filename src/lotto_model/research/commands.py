@@ -261,8 +261,17 @@ def study_command(
     pool_with: list[str] = typer.Option(
         [], help="Earlier rule codes whose draws are added to training."
     ),
+    context: list[str] = typer.Option(
+        [], help="Context groups: jackpot, holiday, prize (known before a draw)."
+    ),
+    until: str | None = typer.Option(
+        None, help="Ignore draws after this ISO date (selection stage)."
+    ),
 ):
     """Phase 7: tune on earlier draws, evaluate the last five years, compare."""
+    from datetime import date
+
+    from lotto_model.research.context import load_context
     from lotto_model.research.protocol import load_population, snapshot_digest
     from lotto_model.research.study import StudyConfig, best, run_study
 
@@ -276,9 +285,13 @@ def study_command(
         evaluation_days=evaluation_days,
         training_window=training_window,
         pooled_regimes=tuple(pool_with),
+        context_features=tuple(context),
+        until=None if until is None else date.fromisoformat(until),
     )
     pooled = {code: load_population(snapshot, code) for code in pool_with}
-    output, reported = run_study(config, draws, output_root, pooled)
+    output, reported = run_study(
+        config, draws, output_root, pooled, load_context(snapshot) if context else None
+    )
     top = best(reported["summary"])
     typer.echo(
         json.dumps(
@@ -309,3 +322,31 @@ def compare_command(
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(table, encoding="utf8")
     typer.echo(table)
+
+
+@app.command("roi")
+@safe_command
+def roi_command(
+    snapshot: Path,
+    rule_code: str = typer.Option("6/45-2026"),
+    price: float = typer.Option(2.0, help="Price of one line in EUR."),
+    lift: float = typer.Option(
+        1.0, help="What-if multiplier on winning probabilities (1 = fair draw)."
+    ),
+    lift_note: str = typer.Option("", help="Where the lift comes from."),
+    output: Path | None = typer.Option(None, help="Write the report here too."),
+):
+    """Big-prize probability, cost and expected return per lines and draws."""
+    from lotto_model.research.roi import market, roi_report
+
+    report = roi_report(
+        market(snapshot, rule_code),
+        price,
+        lift,
+        lift_note,
+        jackpots=(2e6, 5e6, 10e6, 14e6, 16e6),
+    )
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report, encoding="utf8")
+    typer.echo(report)

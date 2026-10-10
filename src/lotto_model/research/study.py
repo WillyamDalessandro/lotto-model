@@ -9,7 +9,7 @@ import io
 import json
 import warnings
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from fractions import Fraction
 from itertools import product
 from pathlib import Path
@@ -26,6 +26,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from lotto_model.audit.contracts import canonical_json, sha256
+from lotto_model.research.context import CONTEXT_GROUPS, context_vector
 from lotto_model.research.contracts import ROOT_SEED, ResearchDraw
 from lotto_model.research.experiment import write_once
 from lotto_model.research.features import (
@@ -82,6 +83,10 @@ class StudyConfig(BaseModel):
     # Training-data variants; evaluation draws and tests never change.
     training_window: int | None = Field(default=None, ge=25)
     pooled_regimes: tuple[str, ...] = ()
+    # Draw-level context groups known before each draw (research.context).
+    context_features: tuple[str, ...] = ()
+    # Drop every draw after this date (selection stage before a final test).
+    until: date | None = None
     tuning: str = (
         "full predeclared grid; each setting walk-forward over the tuning blocks "
         "immediately before the evaluation window, refit at each block start"
@@ -100,13 +105,15 @@ class StudyConfig(BaseModel):
     def known_families(self):
         if not self.families or not set(self.families) <= set(self.search_space):
             raise ValueError("Every model family needs a predeclared search space")
+        if not set(self.context_features) <= set(CONTEXT_GROUPS):
+            raise ValueError("Unknown context feature group")
         return self
 
     @property
     def digest(self) -> str:
         data = self.model_dump(mode="json")
         # Default training data keeps the digests of earlier studies.
-        for name in ("training_window", "pooled_regimes"):
+        for name in ("training_window", "pooled_regimes", "context_features", "until"):
             if not data[name]:
                 data.pop(name)
         return sha256(canonical_json(data))
@@ -174,11 +181,24 @@ def split(config: StudyConfig, draws: list[ResearchDraw]) -> dict:
 
 
 class FeatureCache(dict):
-    def __init__(self, draws, pooled=None):
+    def __init__(self, draws, pooled=None, context=None):
         super().__init__()
         self.draws = draws
         # Rows from earlier regimes: (values with base rate, labels) or None.
         self.pooled = pooled
+        self.context = context or {}
+        self.vectors = {}
+
+    def context_rows(self, groups, indices) -> np.ndarray:
+        """Draw-level context repeated for every number row of each target."""
+        rows = []
+        for index in indices:
+            if index not in self.vectors:
+                self.vectors[index] = context_vector(
+                    self.draws, index, self.context, groups
+                )
+            rows.append(np.tile(self.vectors[index], (self.draws[index].pool, 1)))
+        return np.vstack(rows)
 
     def features(self, index):
         if index not in self:
@@ -191,7 +211,9 @@ def with_base_rate(values: np.ndarray, pool: int) -> np.ndarray:
     return np.column_stack([values, np.full(len(values), 6 / pool)])
 
 
-def pooled_rows(config, regimes: dict[str, list[ResearchDraw]], first_date):
+def pooled_rows(
+    config, regimes: dict[str, list[ResearchDraw]], first_date, context=None
+):
     """Supervised rows of earlier regimes, all drawn before the studied one."""
     if set(regimes) != set(config.pooled_regimes):
         raise ValueError("Pooled draws must match the configured regimes")
@@ -203,13 +225,25 @@ def pooled_rows(config, regimes: dict[str, list[ResearchDraw]], first_date):
         if len(draws) <= config.feature_warmup:
             raise ValueError(f"insufficient_data: pooled regime {code}")
         rows, labels_ = training_rows(draws, len(draws), config.feature_warmup)
-        values.append(with_base_rate(rows.values, draws[0].pool))
+        block = with_base_rate(rows.values, draws[0].pool)
+        if config.context_features:
+            cache = FeatureCache(draws, context=context)
+            indices = range(config.feature_warmup, len(draws))
+            block = np.column_stack(
+                [block, cache.context_rows(config.context_features, indices)]
+            )
+        values.append(block)
         y.append(labels_)
     return np.vstack(values), np.concatenate(y)
 
 
-def model_inputs(config, values: np.ndarray) -> np.ndarray:
-    return with_base_rate(values, config.pool) if config.pooled_regimes else values
+def model_inputs(config, cache, values: np.ndarray, indices) -> np.ndarray:
+    if config.pooled_regimes:
+        values = with_base_rate(values, config.pool)
+    if config.context_features:
+        context = cache.context_rows(config.context_features, indices)
+        values = np.column_stack([values, context])
+    return values
 
 
 def walk_forward(config, draws, cache, family, params, start, end, label):
@@ -220,7 +254,7 @@ def walk_forward(config, draws, cache, family, params, start, end, label):
         if config.training_window is not None:
             first = max(first, block - config.training_window)
         rows, y = training_rows(draws, block, first, cache)
-        values = model_inputs(config, rows.values)
+        values = model_inputs(config, cache, rows.values, range(first, block))
         if cache.pooled is not None:
             values = np.vstack([cache.pooled[0], values])
             y = np.concatenate([cache.pooled[1], y])
@@ -236,7 +270,7 @@ def walk_forward(config, draws, cache, family, params, start, end, label):
             features = cache.features(index)
             if features.max_input_date >= draws[index].draw_date:
                 raise ValueError("Feature leakage detected")
-            inputs = model_inputs(config, features.values)
+            inputs = model_inputs(config, cache, features.values, [index])
             marginals[index] = model.predict_proba(inputs)[:, 1]
     return marginals, converged
 
@@ -545,6 +579,10 @@ def training_description(config) -> str:
     )
     if config.pooled_regimes:
         window += " plus all draws of " + ", ".join(config.pooled_regimes)
+    if config.context_features:
+        window += "; context: " + ", ".join(config.context_features)
+    if config.until is not None:
+        window += f"; draws up to {config.until}"
     return window
 
 
@@ -657,17 +695,22 @@ def run_study(
     draws: list[ResearchDraw],
     output_root: Path,
     pooled: dict[str, list[ResearchDraw]] | None = None,
+    context: dict | None = None,
 ):
     """Tune, evaluate and write an immutable, content-addressed result folder."""
+    if config.until is not None:
+        draws = [d for d in draws if d.draw_date <= config.until]
     if config.pool != draws[0].pool:
         raise ValueError("Configured pool differs from the draws")
     bounds = split(config, draws)
     extra = (
-        pooled_rows(config, pooled or {}, draws[0].draw_date)
+        pooled_rows(config, pooled or {}, draws[0].draw_date, context)
         if config.pooled_regimes
         else None
     )
-    cache = FeatureCache(draws, extra)
+    if config.context_features and not context:
+        raise ValueError("Context features need the snapshot context")
+    cache = FeatureCache(draws, extra, context)
     tuning, chosen = tune(config, draws, cache, bounds)
     results = evaluate(config, draws, cache, bounds, chosen)
     reported = summarise(results["outcomes"], results["calibration"])
@@ -735,3 +778,35 @@ def compare_studies(folders: list[Path]) -> str:
             "",
         ]
     )
+
+
+def select_line_candidate(folders: list[Path]) -> dict:
+    """Ruling 42: the dataset, model and one-line method with the highest
+    one-line 3-plus rate (ties: numbers matched), across study folders."""
+    candidates = []
+    for folder in map(Path, folders):
+        config = StudyConfig.model_validate_json((folder / "config.json").read_text())
+        for row in _read_csv(folder / "summary.csv"):
+            if row["source"] in config.families and row["method"] in (
+                "top6",
+                "weighted",
+            ):
+                candidates.append(
+                    dict(
+                        folder=str(folder),
+                        training=training_description(config),
+                        source=row["source"],
+                        method=row["method"],
+                        rate=float(row["rate"]),
+                        expected_rate=float(row["expected_rate"]),
+                        hits=int(row["hits_3_plus"]),
+                        draws=int(row["draws"]),
+                        mean_matches=float(row["mean_matches"]),
+                    )
+                )
+    if not candidates:
+        raise ValueError("No one-line model candidates in the given studies")
+    ranked = sorted(
+        candidates, key=lambda c: (-c["rate"], -c["mean_matches"], c["folder"])
+    )
+    return dict(selected=ranked[0], candidates=len(ranked), ranking=ranked[:10])
